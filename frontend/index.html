@@ -669,8 +669,7 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const API = 'http://192.168.18.8:3001/api';
-
+const API = `http://${window.location.hostname}:3001/api`;
 // ── Helpers ──────────────────────────────────────────────
 function fmt(val, unit = '') {
   if (val === null || val === undefined) return '<span style="color:var(--ink-faint)">—</span>';
