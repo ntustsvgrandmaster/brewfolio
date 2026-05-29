@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>咖啡日誌</title>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f0e8;
+    --paper: #fdfaf4;
+    --ink: #1a1208;
+    --ink-light: #5a4a32;
+    --ink-faint: #a89070;
+    --accent: #8b4513;
+    --accent-light: #c4702a;
+    --rule: #d4c4a8;
+    --score-fill: #8b4513;
+    --score-empty: #d4c4a8;
+    --hover: #ede5d4;
+    --danger: #c0392b;
+    --danger-bg: #fff0ee;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'IBM Plex Mono', monospace;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--ink);
+    color: var(--bg);
+    padding: 18px 40px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border-bottom: 3px solid var(--accent);
+  }
+  header h1 {
+    font-family: 'Libre Baskerville', serif;
+    font-size: 1.5rem;
+    letter-spacing: 0.04em;
+    flex: 1;
+  }
+  header .header-sub {
+    font-size: 0.7rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .add-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 8px 18px;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .add-btn:hover { background: var(--accent-light); }
+
+  /* ── Layout ── */
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 32px 24px;
+  }
+
+  /* ── Views ── */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ── List ── */
+  .section-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .brew-table { width: 100%; border-collapse: collapse; }
+  .brew-table th {
+    text-align: left;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--rule);
+    font-weight: 500;
+  }
+  .brew-table td {
+    padding: 14px 12px;
+    border-bottom: 1px solid var(--rule);
+    font-size: 0.85rem;
+    vertical-align: middle;
+  }
+  .brew-table tr:hover td { background: var(--hover); cursor: pointer; }
+  .brew-id { color: var(--ink-faint); font-size: 0.75rem; font-style: italic; }
+  .brew-date { color: var(--ink-light); white-space: nowrap; }
+  .brew-beans { font-family: 'Libre Baskerville', serif; font-weight: 700; }
+  .arrow-hint { color: var(--accent); font-size: 0.75rem; opacity: 0; transition: opacity 0.15s; }
+  .brew-table tr:hover .arrow-hint { opacity: 1; }
+  .empty-state {
+    text-align: center; padding: 60px 0;
+    color: var(--ink-faint); font-size: 0.8rem; letter-spacing: 0.1em;
+  }
+
+  /* ── Back btn ── */
+  .back-btn {
+    background: none;
+    border: 1px solid var(--rule);
+    color: var(--ink-light);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 7px 14px;
+    cursor: pointer;
+    margin-bottom: 28px;
+    transition: all 0.15s;
+  }
+  .back-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Detail header ── */
+  .detail-header { margin-bottom: 28px; }
+  .detail-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .detail-beans {
+    font-family: 'Libre Baskerville', serif;
+    font-size: 2rem; font-weight: 700; line-height: 1.1;
+  }
+  .detail-meta { display: flex; gap: 16px; margin-top: 8px; align-items: center; }
+  .detail-date { font-size: 0.75rem; color: var(--ink-faint); letter-spacing: 0.08em; }
+  .hi-badge {
+    font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase;
+    background: var(--ink); color: var(--bg); padding: 3px 10px;
+  }
+  .delete-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase;
+    background: none; border: 1px solid var(--rule);
+    color: var(--ink-faint); padding: 6px 12px; cursor: pointer;
+    transition: all 0.15s; white-space: nowrap; flex-shrink: 0;
+  }
+  .delete-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+  /* ── Sections ── */
+  .detail-section {
+    margin-bottom: 32px; padding: 20px 24px;
+    background: var(--paper); border-left: 3px solid var(--rule);
+  }
+  .detail-section.accent-border { border-left-color: var(--accent); }
+  .detail-section-title {
+    font-size: 0.62rem; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 16px;
+  }
+  .params-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px 24px;
+  }
+  /* 第一行：處理法 烘焙度 研磨度（佔前3欄）*/
+  /* 第二行：豆量 總注水量 水溫 冰塊量（從第1欄強制換行）*/
+  .params-grid > div:nth-child(4) {
+    grid-column: 1;
+  }
+  .param-label {
+    font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 4px;
+  }
+  .param-value { font-size: 1.05rem; font-weight: 500; color: var(--ink); }
+  .param-unit { font-size: 0.7rem; color: var(--ink-light); margin-left: 2px; }
+
+  /* ── Pours ── */
+  .pours-toggle { display: flex; gap: 0; margin-bottom: 16px; }
+  .toggle-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 6px 14px; border: 1px solid var(--rule);
+    background: none; color: var(--ink-faint); cursor: pointer; transition: all 0.15s;
+  }
+  .toggle-btn:first-child { border-right: none; }
+  .toggle-btn.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .pours-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .pours-table th {
+    text-align: left; font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-faint); padding: 6px 10px; border-bottom: 1px solid var(--rule); font-weight: 500;
+  }
+  .pours-table td { padding: 10px 10px; border-bottom: 1px dashed var(--rule); }
+  .pour-label { font-family: 'Libre Baskerville', serif; font-style: italic; color: var(--accent); white-space: nowrap; }
+  .pour-label.bloom { color: var(--ink); font-weight: 700; font-style: normal; }
+  .pour-val { font-weight: 500; }
+  .pour-unit { color: var(--ink-faint); font-size: 0.72rem; margin-left: 2px; }
+  .cumulative-tag { font-size: 0.6rem; color: var(--accent-light); letter-spacing: 0.08em; margin-left: 4px; }
+
+  /* ── Scores ── */
+  .scores-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; }
+  .score-label {
+    font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 6px;
+  }
+  .score-dots { display: flex; gap: 5px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--score-empty); }
+  .dot.filled { background: var(--score-fill); }
+  .score-num { font-size: 0.7rem; color: var(--ink-light); margin-top: 4px; }
+
+  /* ── Total time ── */
+  .total-time-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 0 0; border-top: 1px solid var(--rule); margin-top: 8px;
+  }
+  .total-time-label { font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); }
+  .total-time-val { font-size: 0.95rem; font-weight: 500; color: var(--accent); }
+
+  /* ── Form view ── */
+  .form-title {
+    font-family: 'Libre Baskerville', serif;
+    font-size: 1.4rem; font-weight: 700; margin-bottom: 28px;
+  }
+  .form-section {
+    background: var(--paper); border-left: 3px solid var(--rule);
+    padding: 20px 24px; margin-bottom: 24px;
+  }
+  .form-section.accent-border { border-left-color: var(--accent); }
+  .form-section-title {
+    font-size: 0.62rem; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 16px;
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 16px;
+  }
+  .form-field { display: flex; flex-direction: column; gap: 6px; }
+  .form-field label {
+    font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint);
+  }
+  .form-field input, .form-field select {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    color: var(--ink);
+    padding: 7px 10px;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+  .form-field input:focus, .form-field select:focus { border-color: var(--accent); }
+
+  /* ── Pour rows ── */
+  .pour-rows { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+  .pour-row {
+    display: grid;
+    grid-template-columns: 90px 1fr 1fr 1fr 32px;
+    gap: 8px;
+    align-items: end;
+  }
+  .pour-row-label {
+    font-size: 0.75rem; color: var(--accent);
+    font-family: 'Libre Baskerville', serif; font-style: italic;
+    padding-bottom: 9px;
+  }
+  .pour-row-label.bloom-label { color: var(--ink); font-style: normal; font-weight: 700; }
+  .pour-row input {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.82rem;
+    background: var(--bg); border: 1px solid var(--rule); color: var(--ink);
+    padding: 7px 8px; outline: none; transition: border-color 0.15s; width: 100%;
+  }
+  .pour-row input:focus { border-color: var(--accent); }
+  .remove-pour-btn {
+    background: none; border: 1px solid var(--rule); color: var(--ink-faint);
+    cursor: pointer; font-size: 0.8rem; padding: 6px; transition: all 0.15s;
+    line-height: 1;
+  }
+  .remove-pour-btn:hover { border-color: var(--danger); color: var(--danger); }
+  .add-pour-btn {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    background: none; border: 1px dashed var(--rule); color: var(--ink-faint);
+    padding: 8px 16px; cursor: pointer; transition: all 0.15s;
+  }
+  .add-pour-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Score inputs ── */
+  .score-inputs { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px; }
+  .score-input-item { display: flex; flex-direction: column; gap: 6px; }
+  .score-input-item label {
+    font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint);
+  }
+  .star-row { display: flex; gap: 6px; }
+  .star-btn {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--score-empty); border: none; cursor: pointer;
+    transition: background 0.12s; font-size: 0;
+  }
+  .star-btn.on { background: var(--score-fill); }
+
+  /* ── Submit row ── */
+  .form-actions { display: flex; gap: 12px; margin-top: 8px; }
+  .submit-btn {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    background: var(--accent); color: #fff; border: none;
+    padding: 10px 28px; cursor: pointer; transition: background 0.15s;
+  }
+  .submit-btn:hover { background: var(--accent-light); }
+  .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .cancel-btn {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    background: none; border: 1px solid var(--rule); color: var(--ink-faint);
+    padding: 10px 20px; cursor: pointer; transition: all 0.15s;
+  }
+  .cancel-btn:hover { border-color: var(--ink); color: var(--ink); }
+
+  /* ── Bean list ── */
+  .bean-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; border-bottom: 1px dashed var(--rule); font-size: 0.85rem;
+  }
+  .bean-item:last-child { border-bottom: none; }
+  .bean-name { font-family: "Libre Baskerville", serif; }
+  .bean-del-btn {
+    background: none; border: none; color: var(--ink-faint);
+    font-size: 0.7rem; cursor: pointer; padding: 4px 8px;
+    letter-spacing: 0.08em; transition: color 0.15s;
+  }
+  .bean-del-btn:hover { color: var(--danger); }
+
+  /* ── Delete modal ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5); z-index: 100;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--paper); padding: 28px 32px;
+    max-width: 420px; width: 90%; border-top: 3px solid var(--danger);
+  }
+  .modal-title {
+    font-family: 'Libre Baskerville', serif; font-size: 1.1rem;
+    font-weight: 700; margin-bottom: 10px; color: var(--danger);
+  }
+  .modal-body { font-size: 0.82rem; color: var(--ink-light); line-height: 1.6; margin-bottom: 18px; }
+  .modal-body strong { color: var(--ink); }
+  .modal-confirm-label {
+    font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 6px;
+  }
+  .modal-confirm-input {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem;
+    background: var(--bg); border: 1px solid var(--rule); color: var(--ink);
+    padding: 8px 12px; outline: none; width: 100%; margin-bottom: 18px;
+    transition: border-color 0.15s;
+  }
+  .modal-confirm-input:focus { border-color: var(--danger); }
+  .modal-actions { display: flex; gap: 10px; }
+  .modal-delete-btn {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    background: var(--danger); color: #fff; border: none;
+    padding: 9px 22px; cursor: pointer; transition: opacity 0.15s;
+  }
+  .modal-delete-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .modal-cancel-btn {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    background: none; border: 1px solid var(--rule); color: var(--ink-faint);
+    padding: 9px 18px; cursor: pointer;
+  }
+
+  /* ── Success toast ── */
+  .toast {
+    position: fixed; bottom: 28px; right: 28px;
+    background: var(--ink); color: var(--bg);
+    font-size: 0.75rem; letter-spacing: 0.08em;
+    padding: 12px 20px; opacity: 0;
+    transition: opacity 0.3s; pointer-events: none; z-index: 200;
+  }
+  .toast.show { opacity: 1; }
+
+  /* ── Loading / Error ── */
+  .loading {
+    text-align: center; padding: 60px 0;
+    color: var(--ink-faint); font-size: 0.75rem; letter-spacing: 0.15em;
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
+  .error-msg {
+    background: #fff0e8; border-left: 3px solid var(--accent);
+    padding: 14px 18px; font-size: 0.8rem; color: var(--accent); margin-bottom: 20px;
+  }
+
+  /* ── Timer panel ── */
+  .timer-panel {
+    display: none;
+    background: var(--ink);
+    color: var(--bg);
+    padding: 24px;
+    margin-bottom: 14px;
+  }
+  .timer-panel.open { display: block; }
+  .timer-top {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .timer-display {
+    font-size: 3rem; font-weight: 300; letter-spacing: 0.05em;
+    font-variant-numeric: tabular-nums; line-height: 1;
+  }
+  .timer-phase {
+    font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase;
+    height: 18px; margin-top: 6px; transition: color 0.2s;
+  }
+  .timer-phase.pour { color: #c4702a; }
+  .timer-phase.wait { color: #7ab3c4; }
+  .timer-btns { display: flex; gap: 8px; margin-bottom: 16px; }
+  .timer-btns button {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 9px 18px; border: none; cursor: pointer; transition: opacity 0.15s;
+  }
+  .timer-btns button:disabled { opacity: 0.3; cursor: not-allowed; }
+  #t-start  { background: var(--bg); color: var(--ink); }
+  #t-lap    { background: var(--accent); color: #fff; }
+  #t-reset  { background: none; border: 1px solid rgba(255,255,255,0.2) !important; color: rgba(255,255,255,0.5); }
+  .timer-laps {
+    font-size: 0.75rem; max-height: 160px; overflow-y: auto;
+    border-top: 1px solid rgba(255,255,255,0.15); padding-top: 10px;
+  }
+  .timer-lap-row {
+    display: flex; justify-content: space-between;
+    padding: 4px 0; border-bottom: 1px dashed rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.7);
+  }
+  .timer-lap-row .t-label { color: #c4702a; }
+  .timer-lap-row .t-label.wait { color: #7ab3c4; }
+  .timer-lap-row .t-label.bloom { color: #fff; font-weight: 700; font-style: normal; }
+  .timer-done-btn {
+    width: 100%; margin-top: 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
+    background: var(--accent); color: #fff; border: none;
+    padding: 10px; cursor: pointer; transition: opacity 0.15s;
+  }
+  .timer-done-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .open-timer-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase;
+    background: var(--ink); color: var(--bg);
+    border: none; padding: 4px 12px; cursor: pointer; margin-left: 10px;
+    vertical-align: middle;
+  }
+
+  /* ── Textarea ── */
+  .form-field textarea {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 1rem;
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    color: var(--ink);
+    padding: 10px 12px;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+    resize: vertical;
+    min-height: 100px;
+    line-height: 1.7;
+  }
+  .form-field textarea:focus { border-color: var(--accent); }
+  .detail-note {
+    font-size: 0.9rem;
+    color: var(--ink-light);
+    line-height: 1.8;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .detail-note a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>☕ 咖啡日誌</h1>
+  <span class="header-sub">Brew Log</span>
+  <button class="add-btn" style="background:var(--ink-light);margin-right:8px" onclick="showBeans()">豆款管理</button>
+  <button class="add-btn" onclick="showAdd()">+ 加入紀錄</button>
+</header>
+
+<div class="container">
+
+  <!-- LIST VIEW -->
+  <div id="view-list" class="view active">
+    <div id="list-error"></div>
+    <p class="section-label">所有紀錄</p>
+    <div id="list-content"><div class="loading">Loading...</div></div>
+  </div>
+
+  <!-- DETAIL VIEW -->
+  <div id="view-detail" class="view">
+    <button class="back-btn" onclick="showList()">← 返回列表</button>
+    <div id="detail-content"></div>
+  </div>
+
+  <!-- ADD VIEW -->
+  <div id="view-add" class="view">
+    <button class="back-btn" onclick="showList()">← 返回列表</button>
+    <div class="form-title">新增沖煮紀錄</div>
+
+    <!-- 基本資料 -->
+    <div class="form-section accent-border">
+      <div class="form-section-title">基本資料</div>
+      <div class="form-grid">
+        <div class="form-field" style="grid-column: span 2">
+          <label>咖啡豆</label>
+          <select id="f-beans">
+            <option value="">— 選擇豆款 —</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>豆量 (g)</label>
+          <input type="number" id="f-bean-weight" step="0.1" placeholder="1.0">
+        </div>
+        <div class="form-field">
+          <label>研磨度</label>
+          <input type="number" id="f-grind" step="0.1" placeholder="1.0">
+        </div>
+        <div class="form-field">
+          <label>H / I</label>
+          <select id="f-hi">
+            <option value="H">H（熱）</option>
+            <option value="I">I（冰）</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 注水參數 -->
+    <div class="form-section">
+      <div class="form-section-title">注水參數</div>
+      <div class="form-grid" style="margin-bottom:20px">
+        <div class="form-field">
+          <label>總注水量 (ml)</label>
+          <input type="number" id="f-water-vol" placeholder="200">
+        </div>
+        <div class="form-field">
+          <label>水溫 (°C)</label>
+          <input type="number" id="f-water-temp" placeholder="95">
+        </div>
+        <div class="form-field">
+          <label>冰塊量 (g)</label>
+          <input type="number" id="f-ice-vol" placeholder="190">
+        </div>
+      </div>
+
+      <!-- Pour rows -->
+      <div class="form-section-title" style="margin-bottom:10px">注水細節<button class="open-timer-btn" onclick="toggleTimer()">⏱ 計時器</button></div>
+      <div class="timer-panel" id="timer-panel">
+        <div class="timer-top">
+          <div>
+            <div class="timer-display" id="t-display">00:00.0</div>
+            <div class="timer-phase" id="t-phase">—</div>
+          </div>
+        </div>
+        <div class="timer-btns">
+          <button id="t-start" onclick="tToggleStart()">開始</button>
+          <button id="t-lap" onclick="tLap()" disabled>Lap</button>
+          <button id="t-reset" onclick="tReset()">重置</button>
+        </div>
+        <div class="timer-laps" id="t-laps"></div>
+        <button class="timer-done-btn" id="t-done" onclick="timerDone()" disabled>完成 — 填入表單</button>
+      </div>
+      <div style="display:grid;grid-template-columns:90px 1fr 1fr 1fr 32px;gap:8px;margin-bottom:6px;padding:0 0 4px;border-bottom:1px solid var(--rule)">
+        <span style="font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-faint)"></span>
+        <span style="font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-faint)">水量 (ml)</span>
+        <span style="font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-faint)">注水時間 (s)</span>
+        <span style="font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-faint)">等待時間 (s)</span>
+        <span></span>
+      </div>
+      <div id="pour-rows" class="pour-rows"></div>
+      <button class="add-pour-btn" onclick="addPourRow()">+ 新增注水</button>
+    </div>
+
+    <!-- 風味評分 -->
+    <div class="form-section">
+      <div class="form-section-title">風味評分</div>
+      <div class="score-inputs" id="score-inputs"></div>
+    </div>
+
+    <!-- 備註 -->
+    <div class="form-section">
+      <div class="form-section-title">備註</div>
+      <div class="form-field">
+        <textarea id="f-notes"></textarea>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button class="submit-btn" id="submit-btn" onclick="submitBrew()">儲存紀錄</button>
+      <button class="cancel-btn" onclick="showList()">取消</button>
+    </div>
+    <div id="form-error" style="margin-top:14px"></div>
+  </div>
+
+</div>
+
+  <!-- BEANS VIEW -->
+  <div id="view-beans" class="view">
+    <button class="back-btn" onclick="showList()">← 返回列表</button>
+    <div class="form-title">豆款管理</div>
+    <div class="form-section accent-border">
+      <div class="form-section-title">新增豆款</div>
+      <div class="form-grid" style="margin-bottom:14px">
+        <div class="form-field" style="grid-column:span 2">
+          <label>豆款名稱 *</label>
+          <input type="text" id="new-bean-name" placeholder="衣索比亞谷吉">
+        </div>
+        <div class="form-field">
+          <label>處理法</label>
+          <input type="text" id="new-bean-process" placeholder="日曬">
+        </div>
+        <div class="form-field">
+          <label>烘焙度</label>
+          <input type="text" id="new-bean-roast" placeholder="淺焙">
+        </div>
+      </div>
+      <button class="submit-btn" style="padding:8px 24px" onclick="addBean()">新增豆款</button>
+      <div id="bean-form-error" style="margin-top:10px"></div>
+    </div>
+    <div class="form-section">
+      <div class="form-section-title">已儲存豆款</div>
+      <div id="beans-list"><div class="loading">Loading...</div></div>
+    </div>
+  </div>
+
+<!-- Delete confirmation modal -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal">
+    <div class="modal-title">刪除紀錄</div>
+    <div class="modal-body">
+      確定要刪除 <strong id="modal-beans-name"></strong> 的這筆紀錄嗎？<br>
+      此操作無法復原，同時會刪除所有相關注水紀錄。<br><br>
+      請輸入豆款名稱確認：
+    </div>
+    <div class="modal-confirm-label">確認豆款名稱</div>
+    <input type="text" class="modal-confirm-input" id="modal-confirm-input"
+      placeholder="" oninput="checkDeleteConfirm()">
+    <div class="modal-actions">
+      <button class="modal-delete-btn" id="modal-delete-btn" disabled onclick="confirmDelete()">確認刪除</button>
+      <button class="modal-cancel-btn" onclick="closeDeleteModal()">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'http://192.168.18.8:3001/api';
+
+// ── Helpers ──────────────────────────────────────────────
+function fmt(val, unit = '') {
+  if (val === null || val === undefined) return '<span style="color:var(--ink-faint)">—</span>';
+  return `${val}<span class="param-unit">${unit}</span>`;
+}
+function scoreDots(val) {
+  if (!val) return '—';
+  let dots = '';
+  for (let i = 1; i <= 5; i++) dots += `<div class="dot${i <= val ? ' filled' : ''}"></div>`;
+  return `<div class="score-dots">${dots}</div><div class="score-num">${val} / 5</div>`;
+}
+function formatDate(str) {
+  if (!str) return '—';
+  const d = new Date(str);
+  return d.toLocaleDateString('zh-TW', { year:'numeric', month:'2-digit', day:'2-digit' })
+       + ' ' + d.toLocaleTimeString('zh-TW', { hour:'2-digit', minute:'2-digit' });
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+// ── View switching ────────────────────────────────────────
+function setView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function showList()   { setView('view-list');   loadList(); }
+function showDetail() { setView('view-detail'); }
+function showAdd()    { setView('view-add');    initForm(); loadBeansIntoSelect(); }
+function showBeans()  { setView('view-beans');  loadBeansList(); }
+
+// ── Load List ─────────────────────────────────────────────
+async function loadList() {
+  const errEl     = document.getElementById('list-error');
+  const contentEl = document.getElementById('list-content');
+  errEl.innerHTML = '';
+  contentEl.innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const res = await fetch(`${API}/brews`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const brews = await res.json();
+    if (!brews.length) {
+      contentEl.innerHTML = '<div class="empty-state">尚無紀錄 — 按右上角加入第一筆</div>';
+      return;
+    }
+    contentEl.innerHTML = `
+      <table class="brew-table">
+        <thead><tr><th>ID</th><th>沖泡日期</th><th>咖啡豆</th><th></th></tr></thead>
+        <tbody>
+          ${brews.map(b => `
+            <tr onclick="loadDetail(${b.id})">
+              <td><span class="brew-id">#${b.id}</span></td>
+              <td><span class="brew-date">${formatDate(b.brewed_at)}</span></td>
+              <td><span class="brew-beans">${b.beans_display || '-'}</span></td>
+              <td><span class="arrow-hint">詳細 →</span></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch (e) {
+    errEl.innerHTML = `<div class="error-msg">⚠ 無法連線到後端 (${e.message})。請確認 server.js 已啟動於 port 3001。</div>`;
+    contentEl.innerHTML = '';
+  }
+}
+
+// ── Load Detail ───────────────────────────────────────────
+let currentMode  = 'individual';
+let currentPours = [];
+let currentBrew  = null;
+
+async function loadDetail(id) {
+  showDetail();
+  document.getElementById('detail-content').innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const res = await fetch(`${API}/brews/${id}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const b = await res.json();
+    currentBrew  = b;
+    currentPours = b.pours || [];
+    currentMode  = 'individual';
+    try { renderDetail(b); }
+    catch (renderErr) {
+      console.error('renderDetail error:', renderErr);
+      document.getElementById('detail-content').innerHTML =
+        `<div class="error-msg">⚠ 渲染失敗：${renderErr.message}<br><pre style="font-size:0.7rem;margin-top:8px">${renderErr.stack}</pre></div>`;
+    }
+  } catch (e) {
+    document.getElementById('detail-content').innerHTML =
+      `<div class="error-msg">⚠ 載入失敗：${e.message}</div>`;
+  }
+}
+
+function renderDetail(b) {
+  const hi = b.H_I ?? b.h_i ?? b['H/I'] ?? null;
+  const h_i = hi === 'H' ? 'HOT' : hi === 'I' ? 'ICED' : null;
+  const totalTime = currentPours.reduce((s, p) => s + (p.duration_s||0) + (p.wait_s||0), 0);
+
+  document.getElementById('detail-content').innerHTML = `
+    <div class="detail-header">
+      <div class="detail-header-row">
+        <div class="detail-beans">${b.beans_name || '未知豆款'}</div>
+        <button class="delete-btn" onclick="openDeleteModal(${b.id}, '${(b.beans_display||b.beans_name||'').replace(/'/g,"\\'")}')">刪除紀錄</button>
+      </div>
+      <div class="detail-meta">
+        <span class="detail-date">${formatDate(b.brewed_at)}</span>
+        <span class="hi-badge">${h_i || '—'}</span>
+        <span class="detail-date" style="color:var(--ink-faint)">ID #${b.id}</span>
+      </div>
+    </div>
+
+    <div class="detail-section accent-border">
+      <div class="detail-section-title">沖煮參數</div>
+      <div class="params-grid">
+        <div><div class="param-label">處理法</div><div class="param-value">${b.process || '<span style=\"color:var(--ink-faint)\">—</span>'}</div></div>
+        <div><div class="param-label">烘焙度</div><div class="param-value">${b.roast_level || '<span style=\"color:var(--ink-faint)\">—</span>'}</div></div>
+        <div><div class="param-label">研磨度</div><div class="param-value">${fmt(b.grind)}</div></div>
+        <div><div class="param-label">豆量</div><div class="param-value">${fmt(b.bean_weight,' g')}</div></div>
+        <div><div class="param-label">總注水量</div><div class="param-value">${fmt(b.water_vol,' ml')}</div></div>
+        <div><div class="param-label">水溫</div><div class="param-value">${fmt(b.water_temp,' °C')}</div></div>
+        <div><div class="param-label">冰塊量</div><div class="param-value">${fmt(b.ice_vol,' g')}</div></div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-section-title">注水細節</div>
+      <div class="pours-toggle">
+        <button class="toggle-btn ${currentMode==='individual'?'active':''}" onclick="setMode('individual')">每次單獨</button>
+        <button class="toggle-btn ${currentMode==='cumulative'?'active':''}" onclick="setMode('cumulative')">累積</button>
+      </div>
+      <div id="pours-table-wrap">${renderPoursTable(currentPours, currentMode)}</div>
+      ${totalTime ? `<div class="total-time-row">
+        <span class="total-time-label">總萃取時間</span>
+        <span class="total-time-val">${totalTime} 秒</span>
+      </div>` : ''}
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-section-title">風味評分</div>
+      <div class="scores-grid">
+        ${[['酸度','sour'],['甜度','sweet'],['苦味','bitter'],['濃郁度','richness'],['香氣','aroma']].map(([label,key]) => `
+          <div class="score-item">
+            <div class="score-label">${label}</div>
+            ${scoreDots(b[key])}
+          </div>`).join('')}
+      </div>
+    </div>
+
+    ${b.notes ? `
+    <div class="detail-section">
+      <div class="detail-section-title">備註</div>
+      <div class="detail-note" id="detail-notes-content"></div>
+    </div>` : ''}`;
+
+  // 安全插入 notes（避免 XSS）
+  if (b.notes) {
+    const el = document.getElementById('detail-notes-content');
+    el.textContent = b.notes;
+    // 把網址變成可點擊連結
+    el.innerHTML = el.innerHTML.replace(/(https?:\/\/[^\s<]+)/g,
+      '<a href="$1" target="_blank" rel="noopener" style="color:var(--accent)">$1</a>');
+  }
+}
+
+function renderPoursTable(pours, mode) {
+  if (!pours.length) return '<div style="color:var(--ink-faint);font-size:0.8rem">無注水紀錄</div>';
+  let cumVol=0, cumDur=0, cumWait=0;
+  const rows = pours.map(p => {
+    const isBloom = p.pour_order === 0;
+    const label = isBloom ? '悶蒸' : `第 ${p.pour_order} 注`;
+    cumVol  += (p.volume_ml  || 0);
+    cumDur  += (p.duration_s || 0);
+    cumWait += (p.wait_s     || 0);
+    const vol  = mode==='cumulative' ? cumVol  : p.volume_ml;
+    const dur  = mode==='cumulative' ? cumDur  : p.duration_s;
+    const wait = mode==='cumulative' ? cumWait : p.wait_s;
+    const tag  = mode==='cumulative' ? '<span class="cumulative-tag">累計</span>' : '';
+    const waitLabel = isBloom ? '悶蒸時間' : '萃取時間';
+    return `<tr>
+      <td><span class="pour-label ${isBloom?'bloom':''}">${label}</span></td>
+      <td><span class="pour-val">${vol??'—'}</span><span class="pour-unit">ml</span>${tag}</td>
+      <td><span class="pour-val">${dur??'—'}</span><span class="pour-unit">s</span>${tag}</td>
+      <td>
+        <span style="font-size:0.62rem;color:var(--ink-faint);display:block;margin-bottom:2px">${waitLabel}</span>
+        <span class="pour-val">${wait??'—'}</span><span class="pour-unit">s</span>${tag}
+      </td>
+    </tr>`;
+  }).join('');
+  return `<table class="pours-table">
+    <thead><tr><th></th><th>水量 (ml)</th><th>注水時間 (s)</th><th>等待時間 (s)</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('pours-table-wrap').innerHTML = renderPoursTable(currentPours, mode);
+  document.querySelectorAll('.toggle-btn').forEach(btn => {
+    btn.classList.toggle('active',
+      (mode==='individual' && btn.textContent.includes('單獨')) ||
+      (mode==='cumulative' && btn.textContent.includes('累積')));
+  });
+}
+
+// ── Add Form ──────────────────────────────────────────────
+const SCORE_FIELDS = [['酸度','sour'],['甜度','sweet'],['苦味','bitter'],['濃郁度','richness'],['香氣','aroma']];
+const scoreValues = {};
+
+function initForm() {
+  // reset fields
+  ['f-bean-weight','f-grind','f-water-vol','f-water-temp','f-ice-vol'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('f-beans').value = '';
+  document.getElementById('f-notes').value = '';
+  document.getElementById('f-hi').value = 'H';
+  document.getElementById('form-error').innerHTML = '';
+
+  // reset scores
+  SCORE_FIELDS.forEach(([,key]) => scoreValues[key] = 0);
+  const si = document.getElementById('score-inputs');
+  si.innerHTML = SCORE_FIELDS.map(([label, key]) => `
+    <div class="score-input-item">
+      <label>${label}</label>
+      <div class="star-row" id="stars-${key}">
+        ${[1,2,3,4,5].map(n =>
+          `<button class="star-btn" onclick="setScore('${key}',${n})"></button>`
+        ).join('')}
+      </div>
+    </div>`).join('');
+
+  // reset pours: start with bloom + 1 pour
+  document.getElementById('pour-rows').innerHTML = '';
+  addBloomRow();
+  addPourRow();
+}
+
+function setScore(key, val) {
+  scoreValues[key] = val;
+  const btns = document.querySelectorAll(`#stars-${key} .star-btn`);
+  btns.forEach((b, i) => b.classList.toggle('on', i < val));
+}
+
+let pourCount = 0;
+
+function addBloomRow() {
+  pourCount = 0;
+  const row = document.createElement('div');
+  row.className = 'pour-row';
+  row.id = 'pour-row-bloom';
+  row.innerHTML = `
+    <span class="pour-row-label bloom-label">悶蒸</span>
+    <input type="number" placeholder="40" id="pour-0-vol">
+    <input type="number" placeholder="10" id="pour-0-dur">
+    <input type="number" placeholder="30" id="pour-0-wait">
+    <span></span>`;
+  document.getElementById('pour-rows').appendChild(row);
+}
+
+function addPourRow() {
+  pourCount++;
+  const n = pourCount;
+  const row = document.createElement('div');
+  row.className = 'pour-row';
+  row.id = `pour-row-${n}`;
+  row.innerHTML = `
+    <span class="pour-row-label">第 ${n} 注</span>
+    <input type="number" placeholder="" id="pour-${n}-vol">
+    <input type="number" placeholder="" id="pour-${n}-dur">
+    <input type="number" placeholder="" id="pour-${n}-wait">
+    <button class="remove-pour-btn" onclick="removePourRow(${n})">✕</button>`;
+  document.getElementById('pour-rows').appendChild(row);
+}
+
+function removePourRow(n) {
+  const row = document.getElementById(`pour-row-${n}`);
+  if (row) row.remove();
+  // renumber remaining rows
+  let idx = 1;
+  document.querySelectorAll('.pour-row:not(#pour-row-bloom)').forEach(r => {
+    r.querySelector('.pour-row-label').textContent = `第 ${idx} 注`;
+    r.id = `pour-row-${idx}`;
+    ['vol','dur','wait'].forEach(f => {
+      const inp = r.querySelector(`[id$="-${f}"]`);
+      if (inp) inp.id = `pour-${idx}-${f}`;
+    });
+    r.querySelector('.remove-pour-btn').setAttribute('onclick', `removePourRow(${idx})`);
+    idx++;
+  });
+  pourCount = idx - 1;
+}
+
+function getInt(id) {
+  const v = document.getElementById(id)?.value;
+  return v !== '' && v !== undefined ? parseInt(v) : null;
+}
+function getFloat(id) {
+  const v = document.getElementById(id)?.value;
+  return v !== '' && v !== undefined ? parseFloat(v) : null;
+}
+
+async function submitBrew() {
+  const btn = document.getElementById('submit-btn');
+  const errEl = document.getElementById('form-error');
+  errEl.innerHTML = '';
+
+  const brew = {
+    bean_id:      parseInt(document.getElementById('f-beans').value) || null,
+    bean_weight:  getFloat('f-bean-weight'),
+    grind:        getFloat('f-grind'),
+    H_I:          document.getElementById('f-hi').value,
+    water_vol:    getInt('f-water-vol'),
+    water_temp:   getInt('f-water-temp'),
+    ice_vol:      getInt('f-ice-vol'),
+    notes:        document.getElementById('f-notes').value.trim() || null,
+    ...Object.fromEntries(SCORE_FIELDS.map(([,k]) => [k, scoreValues[k] || null])),
+  };
+
+  // collect pours
+  const pours = [];
+  // bloom
+  const bvol = getInt('pour-0-vol'), bdur = getInt('pour-0-dur'), bwait = getInt('pour-0-wait');
+  if (bvol || bdur || bwait) pours.push({ pour_order:0, volume_ml:bvol, duration_s:bdur, wait_s:bwait });
+  // regular
+  for (let i = 1; i <= pourCount; i++) {
+    const el = document.getElementById(`pour-row-${i}`);
+    if (!el) continue;
+    const vol = getInt(`pour-${i}-vol`), dur = getInt(`pour-${i}-dur`), wait = getInt(`pour-${i}-wait`);
+    if (vol || dur || wait) pours.push({ pour_order:i, volume_ml:vol, duration_s:dur, wait_s:wait });
+  }
+
+  btn.disabled = true;
+  btn.textContent = '儲存中...';
+  try {
+    const res = await fetch(`${API}/brews`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ brew, pours }),
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error || `HTTP ${res.status}`); }
+    showToast('✓ 紀錄已儲存');
+    showList();
+  } catch (e) {
+    errEl.innerHTML = `<div class="error-msg">⚠ 儲存失敗：${e.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '儲存紀錄';
+  }
+}
+
+// ── Delete ────────────────────────────────────────────────
+let deleteTargetId   = null;
+let deleteTargetName = '';
+
+function openDeleteModal(id, name) {
+  deleteTargetId   = id;
+  deleteTargetName = name;
+  document.getElementById('modal-beans-name').textContent = name || `#${id}`;
+  document.getElementById('modal-confirm-input').value = '';
+  document.getElementById('modal-delete-btn').disabled = true;
+  document.getElementById('delete-modal').classList.add('open');
+}
+function closeDeleteModal() {
+  document.getElementById('delete-modal').classList.remove('open');
+  deleteTargetId = null;
+}
+function checkDeleteConfirm() {
+  const val = document.getElementById('modal-confirm-input').value;
+  document.getElementById('modal-delete-btn').disabled = (val !== deleteTargetName);
+}
+async function confirmDelete() {
+  if (!deleteTargetId) return;
+  try {
+    const res = await fetch(`${API}/brews/${deleteTargetId}`, { method: 'DELETE' });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error || `HTTP ${res.status}`); }
+    closeDeleteModal();
+    showToast('✓ 已刪除');
+    showList();
+  } catch (e) {
+    alert(`刪除失敗：${e.message}`);
+  }
+}
+
+// ── Beans management ─────────────────────────────────────
+async function loadBeansIntoSelect() {
+  try {
+    const res = await fetch(`${API}/beans`);
+    const beans = await res.json();
+    const sel = document.getElementById('f-beans');
+    sel.innerHTML = '<option value="">— 選擇豆款 —</option>' +
+      beans.map(b => {
+        const label = [b.beans_name, b.process, b.roast_level].filter(Boolean).join(' ');
+        return `<option value="${b.id}">${label}</option>`;
+      }).join('');
+  } catch (e) { console.error('載入豆款失敗', e); }
+}
+
+async function loadBeansList() {
+  const el = document.getElementById('beans-list');
+  el.innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const res = await fetch(`${API}/beans`);
+    const beans = await res.json();
+    if (!beans.length) {
+      el.innerHTML = '<div style="color:var(--ink-faint);font-size:0.8rem">尚無豆款，請新增</div>';
+      return;
+    }
+    el.innerHTML = beans.map(b => `
+      <div class="bean-item">
+        <span class="bean-name">${[b.beans_name, b.process, b.roast_level].filter(Boolean).join(' ')}</span>
+        <button class="bean-del-btn" onclick="deleteBean(${b.id}, '${b.beans_name}')">刪除</button>
+      </div>`).join('');
+  } catch (e) {
+    el.innerHTML = `<div class="error-msg">⚠ 載入失敗：${e.message}</div>`;
+  }
+}
+
+async function addBean() {
+  const nameEl    = document.getElementById('new-bean-name');
+  const processEl = document.getElementById('new-bean-process');
+  const roastEl   = document.getElementById('new-bean-roast');
+  const errEl     = document.getElementById('bean-form-error');
+  errEl.innerHTML = '';
+  const beans_name = nameEl.value.trim();
+  if (!beans_name) { errEl.innerHTML = '<div class="error-msg">請輸入豆款名稱</div>'; return; }
+  try {
+    const res = await fetch(`${API}/beans`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        beans_name,
+        process:     processEl.value.trim() || null,
+        roast_level: roastEl.value.trim()   || null,
+      }),
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
+    nameEl.value = ''; processEl.value = ''; roastEl.value = '';
+    showToast('✓ 豆款已新增');
+    loadBeansList();
+  } catch (e) {
+    errEl.innerHTML = `<div class="error-msg">⚠ ${e.message}</div>`;
+  }
+}
+
+async function deleteBean(id, name) {
+  if (!confirm(`確定刪除「${name}」？`)) return;
+  try {
+    const res = await fetch(`${API}/beans/${id}`, { method: 'DELETE' });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
+    showToast('✓ 已刪除');
+    loadBeansList();
+  } catch (e) {
+    alert(`刪除失敗：${e.message}`);
+  }
+}
+
+
+// ── Timer ─────────────────────────────────────────────────
+let tStart = 0, tLapTime = 0, tRafId = null;
+let tRunning = false, tLapCount = 0, tLaps = [];
+
+function toggleTimer() {
+  const panel = document.getElementById('timer-panel');
+  panel.classList.toggle('open');
+}
+
+function tFmt(ms) {
+  const t = Math.floor(ms / 100);
+  return `${String(Math.floor(t/600)).padStart(2,'0')}:${String(Math.floor(t/10)%60).padStart(2,'0')}.${t%10}`;
+}
+
+function tTick() {
+  document.getElementById('t-display').textContent = tFmt(performance.now() - tStart);
+  tRafId = requestAnimationFrame(tTick);
+}
+
+function tToggleStart() {
+  const btn = document.getElementById('t-start');
+  if (!tRunning) {
+    tStart = performance.now() - tLapTime;
+    tRunning = true;
+    btn.textContent = '暫停';
+    document.getElementById('t-lap').disabled = false;
+    tSetPhase();
+    tRafId = requestAnimationFrame(tTick);
+  } else {
+    tRunning = false;
+    btn.textContent = '繼續';
+    cancelAnimationFrame(tRafId);
+  }
+}
+
+function tLap() {
+  const now = performance.now();
+  const elapsed = now - tStart;
+  const segment = elapsed - tLapTime;
+  const phase = tLapCount % 2 === 0 ? 'pour' : 'wait';
+  const pourIdx = Math.floor(tLapCount / 2);
+
+  let label;
+  if      (tLapCount === 0) label = '悶蒸注水';
+  else if (tLapCount === 1) label = '悶蒸等待';
+  else if (phase === 'pour') label = `第 ${pourIdx} 注`;
+  else                       label = `第 ${pourIdx} 注等待`;
+
+  tLaps.push({ label, phase, pour_index: pourIdx, segment_ms: Math.round(segment), elapsed_ms: Math.round(elapsed) });
+  tLapTime = elapsed;
+  tLapCount++;
+  tRenderLaps();
+  tSetPhase();
+  // enable done once we have at least one complete pour (2 laps)
+  document.getElementById('t-done').disabled = tLaps.length < 2;
+}
+
+function tSetPhase() {
+  const el = document.getElementById('t-phase');
+  if (!tRunning) { el.textContent = '—'; el.className = 'timer-phase'; return; }
+  const phase = tLapCount % 2 === 0 ? 'pour' : 'wait';
+  const idx = Math.floor(tLapCount / 2);
+  if (phase === 'pour') {
+    el.textContent = tLapCount === 0 ? '悶蒸注水中' : `第 ${idx} 注 注水中`;
+    el.className = 'timer-phase pour';
+  } else {
+    el.textContent = tLapCount === 1 ? '悶蒸等待中' : `第 ${idx} 注 等待中`;
+    el.className = 'timer-phase wait';
+  }
+}
+
+function tRenderLaps() {
+  document.getElementById('t-laps').innerHTML = tLaps.map(l => {
+    const cls = l.phase === 'wait' ? 'wait' : (l.pour_index === 0 ? 'bloom' : '');
+    return `<div class="timer-lap-row">
+      <span class="t-label ${cls}">${l.label}</span>
+      <span>${tFmt(l.segment_ms)}</span>
+      <span style="opacity:0.4">${tFmt(l.elapsed_ms)}</span>
+    </div>`;
+  }).join('');
+}
+
+function tReset() {
+  tRunning = false; cancelAnimationFrame(tRafId);
+  tStart = 0; tLapTime = 0; tLapCount = 0; tLaps = [];
+  document.getElementById('t-display').textContent = '00:00.0';
+  document.getElementById('t-start').textContent = '開始';
+  document.getElementById('t-lap').disabled = true;
+  document.getElementById('t-done').disabled = true;
+  document.getElementById('t-laps').innerHTML = '';
+  document.getElementById('t-phase').textContent = '—';
+  document.getElementById('t-phase').className = 'timer-phase';
+}
+
+function timerDone() {
+  // 停止計時
+  tRunning = false;
+  cancelAnimationFrame(tRafId);
+  document.getElementById('t-start').textContent = '繼續';
+
+  // 組成 pours 資料：每兩個 lap = 一個 pour
+  const pours = [];
+  for (let i = 0; i < tLaps.length; i += 2) {
+    const dur  = tLaps[i];
+    const wait = tLaps[i + 1];
+    pours.push({
+      pour_order: i / 2,
+      duration_s: Math.round(dur.segment_ms / 1000),
+      wait_s:     wait ? Math.round(wait.segment_ms / 1000) : 0,
+    });
+  }
+
+  // 清空現有 pour rows，重新填入
+  document.getElementById('pour-rows').innerHTML = '';
+  pourCount = 0;
+
+  pours.forEach((p, idx) => {
+    if (idx === 0) {
+      // 悶蒸
+      addBloomRow();
+      document.getElementById('pour-0-vol').value  = '';
+      document.getElementById('pour-0-dur').value  = p.duration_s;
+      document.getElementById('pour-0-wait').value = p.wait_s;
+    } else {
+      addPourRow();
+      document.getElementById(`pour-${pourCount}-vol`).value  = '';
+      document.getElementById(`pour-${pourCount}-dur`).value  = p.duration_s;
+      document.getElementById(`pour-${pourCount}-wait`).value = p.wait_s;
+    }
+  });
+
+  // 收起計時器
+  document.getElementById('timer-panel').classList.remove('open');
+}
+
+// ── Init ──────────────────────────────────────────────────────
+loadList();
+</script>
+</body>
+</html>
