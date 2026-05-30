@@ -941,7 +941,7 @@ function applyFilters() {
             <td><span class="brew-id">#${b.id}</span></td>
             <td><span class="brew-date">${formatDate(b.brewed_at)}</span></td>
             <td><span class="brew-beans">${b.beans_display || '-'}</span></td>
-            <td class="td-star"><span class="star-icon${b.starred ? ' filled' : ''}">★</span></td>
+            <td class="td-star"><span class="star-icon${b.starred ? ' filled' : ''}">${b.starred ? '★' : ''}</span></td>
             <td><span class="arrow-hint">詳細 →</span></td>
           </tr>`).join('')}
       </tbody>
