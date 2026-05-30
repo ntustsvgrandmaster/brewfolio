@@ -577,6 +577,41 @@
   }
   .detail-star-btn.filled { color: var(--accent); }
   .detail-star-btn:hover { transform: scale(1.2); }
+
+  /* ── Notes edit ── */
+  .notes-edit-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase;
+    background: none; border: 1px solid var(--rule);
+    color: var(--ink-faint); padding: 5px 12px; cursor: pointer;
+    margin-top: 12px;
+    transition: all 0.15s;
+  }
+  .notes-edit-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .notes-textarea {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.9rem;
+    background: var(--bg); border: 1px solid var(--rule); color: var(--ink);
+    padding: 10px 12px; outline: none; width: 100%;
+    resize: vertical; min-height: 100px; line-height: 1.7;
+    transition: border-color 0.15s; display: none;
+    margin-top: 8px;
+  }
+  .notes-textarea:focus { border-color: var(--accent); }
+  .notes-edit-actions { display: none; gap: 8px; margin-top: 8px; }
+  .notes-save-btn {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    background: var(--accent); color: #fff; border: none;
+    padding: 6px 16px; cursor: pointer; transition: background 0.15s;
+  }
+  .notes-save-btn:hover { background: var(--accent-light); }
+  .notes-cancel-btn {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    background: none; border: 1px solid var(--rule); color: var(--ink-faint);
+    padding: 6px 12px; cursor: pointer; transition: all 0.15s;
+  }
+  .notes-cancel-btn:hover { border-color: var(--ink); color: var(--ink); }
 </style>
 </head>
 <body>
@@ -1037,10 +1072,24 @@ function renderDetail(b) {
     </div>
 
     ${b.notes ? `
-    <div class="detail-section">
+    <div class="detail-section" id="notes-section">
       <div class="detail-section-title">備註</div>
       <div class="detail-note" id="detail-notes-content"></div>
-    </div>` : ''}`;
+      <textarea class="notes-textarea" id="notes-textarea"></textarea>
+      <div class="notes-edit-actions" id="notes-edit-actions">
+        <button class="notes-save-btn" onclick="saveNotes(${b.id})">儲存</button>
+        <button class="notes-cancel-btn" onclick="cancelNotesEdit()">取消</button>
+      </div>
+      <button class="notes-edit-btn" id="notes-edit-btn" onclick="startNotesEdit()">編輯備註</button>
+    </div>` : `
+    <div class="detail-section" id="notes-section">
+      <textarea class="notes-textarea" id="notes-textarea"></textarea>
+      <div class="notes-edit-actions" id="notes-edit-actions">
+        <button class="notes-save-btn" onclick="saveNotes(${b.id})">儲存</button>
+        <button class="notes-cancel-btn" onclick="cancelNotesEdit()">取消</button>
+      </div>
+      <button class="notes-edit-btn" id="notes-edit-btn" onclick="startNotesEdit()">新增備註</button>
+    </div>`}`;
 
   // 安全插入 notes（避免 XSS）
   if (b.notes) {
@@ -1050,6 +1099,9 @@ function renderDetail(b) {
     el.innerHTML = el.innerHTML.replace(/(https?:\/\/[^\s<]+)/g,
       '<a href="$1" target="_blank" rel="noopener" style="color:var(--accent)">$1</a>');
   }
+  // 把目前 notes 存到 textarea 備用
+  const ta = document.getElementById('notes-textarea');
+  if (ta && b.notes) ta.value = b.notes;
 }
 
 function renderPoursTable(pours, mode) {
@@ -1268,6 +1320,85 @@ async function confirmDelete() {
     showList();
   } catch (e) {
     alert(`刪除失敗：${e.message}`);
+  }
+}
+
+// ── Notes edit ────────────────────────────────────────────
+function startNotesEdit() {
+  const content  = document.getElementById('detail-notes-content');
+  const ta       = document.getElementById('notes-textarea');
+  const actions  = document.getElementById('notes-edit-actions');
+  const editBtn  = document.getElementById('notes-edit-btn');
+  if (content) content.style.display = 'none';
+  ta.style.display = 'block';
+  actions.style.display = 'flex';
+  editBtn.style.display = 'none';
+  ta.focus();
+}
+
+function cancelNotesEdit() {
+  const content  = document.getElementById('detail-notes-content');
+  const ta       = document.getElementById('notes-textarea');
+  const actions  = document.getElementById('notes-edit-actions');
+  const editBtn  = document.getElementById('notes-edit-btn');
+  if (content) content.style.display = '';
+  ta.style.display = 'none';
+  actions.style.display = 'none';
+  editBtn.style.display = '';
+  // 還原 textarea 內容
+  if (content) ta.value = content.textContent;
+}
+
+async function saveNotes(id) {
+  const ta      = document.getElementById('notes-textarea');
+  const newNotes = ta.value.trim() || null;
+  try {
+    const res = await fetch(`${API}/brews/${id}/notes`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes: newNotes }),
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
+
+    // 更新 currentBrew 快取
+    if (currentBrew) currentBrew.notes = newNotes;
+
+    // 重新渲染 notes 區塊
+    const content = document.getElementById('detail-notes-content');
+    const editBtn = document.getElementById('notes-edit-btn');
+    const actions = document.getElementById('notes-edit-actions');
+
+    if (newNotes) {
+      if (!content) {
+        // 原本沒有 notes content div，補上
+        const section = document.getElementById('notes-section');
+        const div = document.createElement('div');
+        div.className = 'detail-note';
+        div.id = 'detail-notes-content';
+        section.insertBefore(div, section.querySelector('textarea'));
+        // 加上標題（原本沒有）
+        const title = document.createElement('div');
+        title.className = 'detail-section-title';
+        title.textContent = '備註';
+        section.insertBefore(title, div);
+      }
+      const el = document.getElementById('detail-notes-content');
+      el.textContent = newNotes;
+      el.innerHTML = el.innerHTML.replace(/(https?:\/\/[^\s<]+)/g,
+        '<a href="$1" target="_blank" rel="noopener" style="color:var(--accent)">$1</a>');
+      el.style.display = '';
+      editBtn.textContent = '編輯備註';
+    } else {
+      if (content) content.style.display = 'none';
+      editBtn.textContent = '新增備註';
+    }
+
+    ta.style.display = 'none';
+    actions.style.display = 'none';
+    editBtn.style.display = '';
+    showToast('✓ 備註已儲存');
+  } catch (e) {
+    alert(`儲存失敗：${e.message}`);
   }
 }
 

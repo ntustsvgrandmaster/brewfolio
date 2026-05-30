@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
+const { Bonjour } = require('bonjour-service');
 
 const app = express();
 app.use(cors());
@@ -105,6 +106,19 @@ app.post('/api/brews', async (req, res) => {
   }
 });
 
+// PATCH 更新 notes
+app.patch('/api/brews/:id/notes', async (req, res) => {
+  try {
+    const { notes } = req.body;
+    const [result] = await pool.query(
+      'UPDATE brews SET notes = ? WHERE id = ?',
+      [notes ?? null, req.params.id]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Not found' });
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // PATCH 更新 starred 狀態
 app.patch('/api/brews/:id/starred', async (req, res) => {
   try {
@@ -177,4 +191,7 @@ app.delete('/api/beans/:id', async (req, res) => {
 });
 
 const PORT = 3001;
-app.listen(PORT, '0.0.0.0', () => console.log(`✅ Coffee API running at http://localhost:${PORT}`));
+// app.listen(PORT, '0.0.0.0', () => console.log(`✅ Coffee API running at http://localhost:${PORT}`));
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Coffee API running at http://localhost:${PORT}`);
+});
