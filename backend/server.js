@@ -23,7 +23,7 @@ const pool = mysql.createPool({
 app.get('/api/brews', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT id, brewed_at, H_I,
+      `SELECT id, brewed_at, H_I, starred,
               TRIM(CONCAT_WS(' ', beans_name, process, roast_level)) AS beans_display
        FROM brews ORDER BY brewed_at DESC`
     );
@@ -40,7 +40,7 @@ app.get('/api/brews/:id', async (req, res) => {
               TRIM(CONCAT_WS(' ', beans_name, process, roast_level)) AS beans_display,
               grind, H_I AS H_I, bean_weight,
               water_vol, water_temp, ice_vol,
-              sour, sweet, bitter, richness, aroma, notes
+              sour, sweet, bitter, richness, aroma, notes, starred
        FROM brews WHERE id = ?`,
       [req.params.id]
     );
@@ -103,6 +103,21 @@ app.post('/api/brews', async (req, res) => {
   } finally {
     conn.release();
   }
+});
+
+// PATCH 更新 starred 狀態
+app.patch('/api/brews/:id/starred', async (req, res) => {
+  try {
+    const { starred } = req.body;
+    if (typeof starred !== 'boolean' && starred !== 0 && starred !== 1)
+      return res.status(400).json({ error: 'starred must be boolean' });
+    const [result] = await pool.query(
+      'UPDATE brews SET starred = ? WHERE id = ?',
+      [starred ? 1 : 0, req.params.id]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Not found' });
+    res.json({ ok: true, starred: starred ? 1 : 0 });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // DELETE 刪除沖煮
