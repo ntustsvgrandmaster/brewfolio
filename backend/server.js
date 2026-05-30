@@ -23,7 +23,7 @@ const pool = mysql.createPool({
 app.get('/api/brews', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT id, brewed_at,
+      `SELECT id, brewed_at, H_I,
               TRIM(CONCAT_WS(' ', beans_name, process, roast_level)) AS beans_display
        FROM brews ORDER BY brewed_at DESC`
     );

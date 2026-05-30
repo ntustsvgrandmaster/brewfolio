@@ -489,6 +489,72 @@
     word-break: break-word;
   }
   .detail-note a { color: var(--accent); }
+
+  /* ── Filter / Sort bar ── */
+  .list-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .toolbar-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    white-space: nowrap;
+  }
+  .toolbar-select {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    color: var(--ink);
+    padding: 5px 8px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    min-width: 80px;
+  }
+  .toolbar-select:focus { border-color: var(--accent); }
+  .toolbar-divider {
+    width: 1px; height: 20px;
+    background: var(--rule);
+    margin: 0 2px;
+  }
+  .sort-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    background: none;
+    border: 1px solid var(--rule);
+    color: var(--ink-faint);
+    padding: 5px 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .sort-btn.active {
+    background: var(--ink);
+    color: var(--bg);
+    border-color: var(--ink);
+  }
+  .sort-btn:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
+  .list-count {
+    margin-left: auto;
+    font-size: 0.65rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.08em;
+  }
 </style>
 </head>
 <body>
@@ -506,6 +572,39 @@
   <div id="view-list" class="view active">
     <div id="list-error"></div>
     <p class="section-label">所有紀錄</p>
+
+    <!-- Filter / Sort toolbar -->
+    <div class="list-toolbar">
+      <div class="toolbar-group">
+        <span class="toolbar-label">豆款</span>
+        <select class="toolbar-select" id="filter-bean" onchange="applyFilters()">
+          <option value="">全部</option>
+        </select>
+      </div>
+      <div class="toolbar-group">
+        <span class="toolbar-label">H / I</span>
+        <select class="toolbar-select" id="filter-hi" onchange="applyFilters()">
+          <option value="">全部</option>
+          <option value="H">Hot</option>
+          <option value="I">Iced</option>
+        </select>
+      </div>
+      <div class="toolbar-group">
+        <span class="toolbar-label">烘焙度</span>
+        <select class="toolbar-select" id="filter-roast" onchange="applyFilters()">
+          <option value="">全部</option>
+        </select>
+      </div>
+      <div class="toolbar-divider"></div>
+      <div class="toolbar-group">
+        <span class="toolbar-label">排序</span>
+        <button class="sort-btn active" id="sort-date-desc" onclick="setSort('date-desc')">日期 ↓</button>
+        <button class="sort-btn" id="sort-date-asc"  onclick="setSort('date-asc')">日期 ↑</button>
+        <button class="sort-btn" id="sort-bean-az"   onclick="setSort('bean-az')">豆名</button>
+      </div>
+      <span class="list-count" id="list-count"></span>
+    </div>
+
     <div id="list-content"><div class="loading">Loading...</div></div>
   </div>
 
@@ -670,6 +769,7 @@
 
 <script>
 const API = `http://${window.location.hostname}:3001/api`;
+
 // ── Helpers ──────────────────────────────────────────────
 function fmt(val, unit = '') {
   if (val === null || val === undefined) return '<span style="color:var(--ink-faint)">—</span>';
@@ -704,6 +804,9 @@ function showAdd()    { setView('view-add');    initForm(); loadBeansIntoSelect(
 function showBeans()  { setView('view-beans');  loadBeansList(); }
 
 // ── Load List ─────────────────────────────────────────────
+let allBrews = [];   // master copy
+let currentSort = 'date-desc';
+
 async function loadList() {
   const errEl     = document.getElementById('list-error');
   const contentEl = document.getElementById('list-content');
@@ -713,27 +816,105 @@ async function loadList() {
     const res = await fetch(`${API}/brews`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const brews = await res.json();
-    if (!brews.length) {
-      contentEl.innerHTML = '<div class="empty-state">尚無紀錄 — 按右上角加入第一筆</div>';
-      return;
-    }
-    contentEl.innerHTML = `
-      <table class="brew-table">
-        <thead><tr><th>ID</th><th>沖泡日期</th><th>咖啡豆</th><th></th></tr></thead>
-        <tbody>
-          ${brews.map(b => `
-            <tr onclick="loadDetail(${b.id})">
-              <td><span class="brew-id">#${b.id}</span></td>
-              <td><span class="brew-date">${formatDate(b.brewed_at)}</span></td>
-              <td><span class="brew-beans">${b.beans_display || '-'}</span></td>
-              <td><span class="arrow-hint">詳細 →</span></td>
-            </tr>`).join('')}
-        </tbody>
-      </table>`;
+    allBrews = brews;
+
+    // 動態填充 filter 選項（豆款、烘焙度）
+    populateFilterOptions(brews);
+
+    applyFilters();
   } catch (e) {
     errEl.innerHTML = `<div class="error-msg">⚠ 無法連線到後端 (${e.message})。請確認 server.js 已啟動於 port 3001。</div>`;
     contentEl.innerHTML = '';
   }
+}
+
+function populateFilterOptions(brews) {
+  // 豆款
+  const beanSel  = document.getElementById('filter-bean');
+  const prevBean = beanSel.value;
+  const beans    = [...new Set(brews.map(b => b.beans_display).filter(Boolean))].sort();
+  beanSel.innerHTML = '<option value="">全部</option>' +
+    beans.map(n => `<option value="${n}">${n}</option>`).join('');
+  if (beans.includes(prevBean)) beanSel.value = prevBean;
+
+  // 烘焙度（從 beans_display 末段解析不可靠，改從後端 /api/beans 撈）
+  // 用已存的 allBrews 中 beans_display 裡含的關鍵字湊合；
+  // 實際上 brews API 沒有單獨的 roast_level 欄，須另行 fetch beans
+  fetchRoastOptions();
+}
+
+async function fetchRoastOptions() {
+  try {
+    const res   = await fetch(`${API}/beans`);
+    const beans = await res.json();
+    const roastSel  = document.getElementById('filter-roast');
+    const prevRoast = roastSel.value;
+    const roasts    = [...new Set(beans.map(b => b.roast_level).filter(Boolean))].sort();
+    roastSel.innerHTML = '<option value="">全部</option>' +
+      roasts.map(r => `<option value="${r}">${r}</option>`).join('');
+    if (roasts.includes(prevRoast)) roastSel.value = prevRoast;
+  } catch (_) {}
+}
+
+function setSort(key) {
+  currentSort = key;
+  ['date-desc','date-asc','bean-az'].forEach(k => {
+    document.getElementById(`sort-${k}`)?.classList.toggle('active', k === key);
+  });
+  applyFilters();
+}
+
+function applyFilters() {
+  const filterBean  = document.getElementById('filter-bean')?.value  || '';
+  const filterHI    = document.getElementById('filter-hi')?.value    || '';
+  const filterRoast = document.getElementById('filter-roast')?.value || '';
+
+  let list = allBrews.filter(b => {
+    if (filterBean  && b.beans_display !== filterBean)          return false;
+    // H_I 欄位名稱與後端一致
+    if (filterHI    && (b.H_I ?? b.h_i) !== filterHI)          return false;
+    // roast 存在 beans_display 裡（快照字串），用 includes 粗略比對
+    if (filterRoast && !(b.beans_display || '').includes(filterRoast)) return false;
+    return true;
+  });
+
+  // 排序
+  list = [...list].sort((a, b) => {
+    if (currentSort === 'date-desc') return new Date(b.brewed_at) - new Date(a.brewed_at);
+    if (currentSort === 'date-asc')  return new Date(a.brewed_at) - new Date(b.brewed_at);
+    if (currentSort === 'bean-az')   return (a.beans_display||'').localeCompare(b.beans_display||'', 'zh-TW');
+    return 0;
+  });
+
+  // 顯示筆數
+  const countEl = document.getElementById('list-count');
+  if (countEl) {
+    const total = allBrews.length;
+    countEl.textContent = list.length === total
+      ? `共 ${total} 筆`
+      : `${list.length} / ${total} 筆`;
+  }
+
+  const contentEl = document.getElementById('list-content');
+  if (!list.length) {
+    contentEl.innerHTML = allBrews.length
+      ? '<div class="empty-state">沒有符合條件的紀錄</div>'
+      : '<div class="empty-state">尚無紀錄 — 按右上角加入第一筆</div>';
+    return;
+  }
+  contentEl.innerHTML = `
+    <table class="brew-table">
+      <thead><tr><th>ID</th><th>沖泡日期</th><th>咖啡豆</th><th></th></tr></thead>
+      <tbody>
+        ${list.map(b => `
+          <tr onclick="loadDetail(${b.id})">
+            <td><span class="brew-id">#${b.id}</span></td>
+            <td><span class="brew-date">${formatDate(b.brewed_at)}</span></td>
+            <td><span class="brew-beans">${b.beans_display || '-'}</span></td>
+            <td><span class="arrow-hint">詳細 →</span></td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
 }
 
 // ── Load Detail ───────────────────────────────────────────
