@@ -427,6 +427,11 @@
   }
   .timer-phase.pour { color: #c4702a; }
   .timer-phase.wait { color: #7ab3c4; }
+  .timer-lap-display {
+    font-size: 0.95rem; color: var(--ink-faint);
+    letter-spacing: 0.05em; margin-top: 3px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
   .timer-btns { display: flex; gap: 8px; margin-bottom: 16px; }
   .timer-btns button {
     font-family: 'IBM Plex Mono', monospace;
@@ -736,6 +741,7 @@
         <div class="timer-top">
           <div>
             <div class="timer-display" id="t-display">00:00.0</div>
+            <div class="timer-lap-display" id="t-lap-display">— : —</div>
             <div class="timer-phase" id="t-phase">—</div>
           </div>
         </div>
@@ -1056,7 +1062,7 @@ function renderDetail(b) {
       <div id="pours-table-wrap">${renderPoursTable(currentPours, currentMode)}</div>
       ${totalTime ? `<div class="total-time-row">
         <span class="total-time-label">總萃取時間</span>
-        <span class="total-time-val">${totalTime} 秒</span>
+        <span class="total-time-val">${Math.floor(totalTime/60)}:${String(totalTime%60).padStart(2,'0')}</span>
       </div>` : ''}
     </div>
 
@@ -1512,7 +1518,11 @@ function tFmt(ms) {
 }
 
 function tTick() {
-  document.getElementById('t-display').textContent = tFmt(performance.now() - tStart);
+  const now = performance.now();
+  const elapsed = now - tStart;
+  const lapElapsed = elapsed - tLapTime;
+  document.getElementById('t-display').textContent = tFmt(elapsed);
+  document.getElementById('t-lap-display').textContent = `lap  ${tFmt(lapElapsed)}`;
   tRafId = requestAnimationFrame(tTick);
 }
 
@@ -1583,6 +1593,7 @@ function tReset() {
   tRunning = false; cancelAnimationFrame(tRafId);
   tStart = 0; tLapTime = 0; tLapCount = 0; tLaps = [];
   document.getElementById('t-display').textContent = '00:00.0';
+  document.getElementById('t-lap-display').textContent = '— : —';
   document.getElementById('t-start').textContent = '開始';
   document.getElementById('t-lap').disabled = true;
   document.getElementById('t-done').disabled = true;

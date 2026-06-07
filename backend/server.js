@@ -12,8 +12,8 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 const pool = mysql.createPool({
   host: 'localhost',
   user: 'root',
-  password: '',       // ← 填入你的 root 密碼（若有）
-  database: 'coffee', // ← 填入你的資料庫名稱
+  password: '',
+  database: 'coffee',
   waitForConnections: true,
   connectionLimit: 10,
 });
