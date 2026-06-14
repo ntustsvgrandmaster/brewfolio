@@ -12,8 +12,8 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 const pool = mysql.createPool({
   host: 'localhost',
   user: 'root',
-  password: '',
-  database: 'coffee',
+  password: '',       // ← 填入你的 root 密碼（若有）
+  database: 'coffee', // ← 填入你的資料庫名稱
   waitForConnections: true,
   connectionLimit: 10,
 });
@@ -24,11 +24,17 @@ const pool = mysql.createPool({
 app.get('/api/brews', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT id, brewed_at, H_I, starred,
-              TRIM(CONCAT_WS(' ', beans_name, process, roast_level)) AS beans_display
-       FROM brews ORDER BY brewed_at DESC`
+      `SELECT b.id, b.brewed_at, b.H_I, b.starred,
+              TRIM(CONCAT_WS(' ',
+                COALESCE(mb.beans_name, b.beans_name),
+                COALESCE(mb.process,    b.process),
+                COALESCE(mb.roast_level,b.roast_level)
+              )) AS beans_display
+       FROM brews b
+       LEFT JOIN myBeans mb ON b.bean_id = mb.id
+       ORDER BY b.brewed_at DESC`
     );
-    res.json(rows);
+    res.json(rows.map(r => ({ ...r, beans_display: r.beans_display || '未知豆款' })));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -36,16 +42,28 @@ app.get('/api/brews', async (req, res) => {
 app.get('/api/brews/:id', async (req, res) => {
   try {
     const [[brew]] = await pool.query(
-      `SELECT id, brewed_at,
-              bean_id, beans_name, process, roast_level,
-              TRIM(CONCAT_WS(' ', beans_name, process, roast_level)) AS beans_display,
-              grind, H_I AS H_I, bean_weight,
-              water_vol, water_temp, ice_vol,
-              sour, sweet, bitter, richness, aroma, notes, starred
-       FROM brews WHERE id = ?`,
+      `SELECT b.id, b.brewed_at,
+              b.bean_id,
+              b.beans_name AS snap_beans_name, b.process AS snap_process, b.roast_level AS snap_roast_level,
+              COALESCE(mb.beans_name,  b.beans_name)  AS beans_name,
+              COALESCE(mb.process,     b.process)     AS process,
+              COALESCE(mb.roast_level, b.roast_level) AS roast_level,
+              TRIM(CONCAT_WS(' ',
+                COALESCE(mb.beans_name,  b.beans_name),
+                COALESCE(mb.process,     b.process),
+                COALESCE(mb.roast_level, b.roast_level)
+              )) AS beans_display,
+              b.grind, b.H_I, b.bean_weight,
+              b.water_vol, b.water_temp, b.ice_vol,
+              b.sour, b.sweet, b.bitter, b.richness, b.aroma, b.notes, b.starred
+       FROM brews b
+       LEFT JOIN myBeans mb ON b.bean_id = mb.id
+       WHERE b.id = ?`,
       [req.params.id]
     );
     if (!brew) return res.status(404).json({ error: 'Not found' });
+    brew.beans_display = brew.beans_display || brew.snap_beans_name || '未知豆款';
+    brew.beans_name    = brew.beans_name    || brew.snap_beans_name || '未知豆款';
     const [pours] = await pool.query(
       'SELECT * FROM pours WHERE brew_id = ? ORDER BY pour_order ASC',
       [req.params.id]

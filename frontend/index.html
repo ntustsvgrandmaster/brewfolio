@@ -329,15 +329,47 @@
   .bean-item {
     display: flex; align-items: center; justify-content: space-between;
     padding: 10px 0; border-bottom: 1px dashed var(--rule); font-size: 0.85rem;
+    flex-wrap: wrap; gap: 6px;
   }
   .bean-item:last-child { border-bottom: none; }
   .bean-name { font-family: "Libre Baskerville", serif; }
-  .bean-del-btn {
+  .bean-item-btns { display: flex; gap: 4px; flex-shrink: 0; }
+  .bean-del-btn, .bean-edit-btn {
     background: none; border: none; color: var(--ink-faint);
     font-size: 0.7rem; cursor: pointer; padding: 4px 8px;
     letter-spacing: 0.08em; transition: color 0.15s;
   }
-  .bean-del-btn:hover { color: var(--danger); }
+  .bean-del-btn:hover  { color: var(--danger); }
+  .bean-edit-btn:hover { color: var(--accent); }
+  .bean-edit-form {
+    display: none; width: 100%; margin-top: 8px;
+    padding: 10px 12px; background: var(--bg-alt, var(--bg));
+    border: 1px solid var(--rule);
+  }
+  .bean-edit-form.open { display: block; }
+  .bean-edit-grid {
+    display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; margin-bottom: 10px;
+  }
+  .bean-edit-grid input {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem;
+    background: var(--bg); border: 1px solid var(--rule); color: var(--ink);
+    padding: 6px 8px; outline: none; transition: border-color 0.15s; width: 100%;
+  }
+  .bean-edit-grid input:focus { border-color: var(--accent); }
+  .bean-edit-actions { display: flex; gap: 8px; }
+  .bean-save-btn {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    background: var(--accent); color: #fff; border: none;
+    padding: 6px 16px; cursor: pointer;
+  }
+  .bean-cancel-btn {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    background: none; border: 1px solid var(--rule); color: var(--ink-faint);
+    padding: 6px 12px; cursor: pointer;
+  }
+  .bean-cancel-btn:hover { border-color: var(--ink); color: var(--ink); }
 
   /* ── Delete modal ── */
   .modal-overlay {
@@ -427,11 +459,6 @@
   }
   .timer-phase.pour { color: #c4702a; }
   .timer-phase.wait { color: #7ab3c4; }
-  .timer-lap-display {
-    font-size: 0.95rem; color: var(--ink-faint);
-    letter-spacing: 0.05em; margin-top: 3px;
-    font-family: 'IBM Plex Mono', monospace;
-  }
   .timer-btns { display: flex; gap: 8px; margin-bottom: 16px; }
   .timer-btns button {
     font-family: 'IBM Plex Mono', monospace;
@@ -741,7 +768,6 @@
         <div class="timer-top">
           <div>
             <div class="timer-display" id="t-display">00:00.0</div>
-            <div class="timer-lap-display" id="t-lap-display">— : —</div>
             <div class="timer-phase" id="t-phase">—</div>
           </div>
         </div>
@@ -1062,7 +1088,7 @@ function renderDetail(b) {
       <div id="pours-table-wrap">${renderPoursTable(currentPours, currentMode)}</div>
       ${totalTime ? `<div class="total-time-row">
         <span class="total-time-label">總萃取時間</span>
-        <span class="total-time-val">${Math.floor(totalTime/60)}:${String(totalTime%60).padStart(2,'0')}</span>
+        <span class="total-time-val">${totalTime} 秒</span>
       </div>` : ''}
     </div>
 
@@ -1454,9 +1480,23 @@ async function loadBeansList() {
       return;
     }
     el.innerHTML = beans.map(b => `
-      <div class="bean-item">
-        <span class="bean-name">${[b.beans_name, b.process, b.roast_level].filter(Boolean).join(' ')}</span>
-        <button class="bean-del-btn" onclick="deleteBean(${b.id}, '${b.beans_name}')">刪除</button>
+      <div class="bean-item" id="bean-item-${b.id}">
+        <span class="bean-name">${[b.beans_name, b.process, b.roast_level].filter(Boolean).join(' · ')}</span>
+        <div class="bean-item-btns">
+          <button class="bean-edit-btn" onclick="toggleBeanEdit(${b.id})">編輯</button>
+          <button class="bean-del-btn"  onclick="deleteBean(${b.id}, '${b.beans_name.replace(/'/g, "\\'")}')">刪除</button>
+        </div>
+        <div class="bean-edit-form" id="bean-edit-form-${b.id}">
+          <div class="bean-edit-grid">
+            <input type="text" id="bean-edit-name-${b.id}"    value="${b.beans_name  || ''}" placeholder="豆款名稱 *">
+            <input type="text" id="bean-edit-process-${b.id}" value="${b.process     || ''}" placeholder="處理法">
+            <input type="text" id="bean-edit-roast-${b.id}"   value="${b.roast_level || ''}" placeholder="烘焙度">
+          </div>
+          <div class="bean-edit-actions">
+            <button class="bean-save-btn"   onclick="saveBean(${b.id})">儲存</button>
+            <button class="bean-cancel-btn" onclick="toggleBeanEdit(${b.id})">取消</button>
+          </div>
+        </div>
       </div>`).join('');
   } catch (e) {
     el.innerHTML = `<div class="error-msg">⚠ 載入失敗：${e.message}</div>`;
@@ -1502,6 +1542,30 @@ async function deleteBean(id, name) {
   }
 }
 
+function toggleBeanEdit(id) {
+  const form = document.getElementById(`bean-edit-form-${id}`);
+  form.classList.toggle('open');
+}
+
+async function saveBean(id) {
+  const name    = document.getElementById(`bean-edit-name-${id}`).value.trim();
+  const process = document.getElementById(`bean-edit-process-${id}`).value.trim();
+  const roast   = document.getElementById(`bean-edit-roast-${id}`).value.trim();
+  if (!name) { alert('豆款名稱不得為空'); return; }
+  try {
+    const res = await fetch(`${API}/beans/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ beans_name: name, process: process || null, roast_level: roast || null }),
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
+    showToast('✓ 豆款已更新');
+    loadBeansList();
+  } catch (e) {
+    alert(`儲存失敗：${e.message}`);
+  }
+}
+
 
 // ── Timer ─────────────────────────────────────────────────
 let tStart = 0, tLapTime = 0, tRafId = null;
@@ -1518,11 +1582,7 @@ function tFmt(ms) {
 }
 
 function tTick() {
-  const now = performance.now();
-  const elapsed = now - tStart;
-  const lapElapsed = elapsed - tLapTime;
-  document.getElementById('t-display').textContent = tFmt(elapsed);
-  document.getElementById('t-lap-display').textContent = `lap  ${tFmt(lapElapsed)}`;
+  document.getElementById('t-display').textContent = tFmt(performance.now() - tStart);
   tRafId = requestAnimationFrame(tTick);
 }
 
@@ -1593,7 +1653,6 @@ function tReset() {
   tRunning = false; cancelAnimationFrame(tRafId);
   tStart = 0; tLapTime = 0; tLapCount = 0; tLaps = [];
   document.getElementById('t-display').textContent = '00:00.0';
-  document.getElementById('t-lap-display').textContent = '— : —';
   document.getElementById('t-start').textContent = '開始';
   document.getElementById('t-lap').disabled = true;
   document.getElementById('t-done').disabled = true;
