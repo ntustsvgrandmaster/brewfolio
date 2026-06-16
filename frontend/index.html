@@ -192,31 +192,15 @@
   }
   .toggle-btn:first-child { border-right: none; }
   .toggle-btn.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-  /* ── Pours detail layout ── */
-  .pour-detail-list { display: flex; flex-direction: column; }
-  .pour-detail-row {
-    padding: 12px 0;
-    border-bottom: 1px dashed var(--rule);
+  .pours-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .pours-table th {
+    text-align: left; font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-faint); padding: 6px 10px; border-bottom: 1px solid var(--rule); font-weight: 500;
   }
-  .pour-detail-row:last-child { border-bottom: none; }
-  .pour-detail-main {
-    display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px;
-  }
-  .pour-detail-sub {
-    padding-left: calc(4rem + 12px + 3rem + 12px); /* indent past label + vol */
-    font-size: 0.82rem;
-  }
-  .pour-detail-vol {
-    font-size: 0.9rem; font-weight: 500; min-width: 3rem;
-  }
-  .pour-detail-field {
-    font-size: 0.82rem; color: var(--ink-faint);
-  }
-  .pour-detail-field strong {
-    color: var(--ink); font-weight: 500;
-  }
-  .pour-label { font-family: 'Libre Baskerville', serif; font-style: italic; color: var(--accent); white-space: nowrap; min-width: 4rem; }
+  .pours-table td { padding: 10px 10px; border-bottom: 1px dashed var(--rule); }
+  .pour-label { font-family: 'Libre Baskerville', serif; font-style: italic; color: var(--accent); white-space: nowrap; }
   .pour-label.bloom { color: var(--ink); font-weight: 700; font-style: normal; }
+  .pour-val { font-weight: 500; }
   .pour-unit { color: var(--ink-faint); font-size: 0.72rem; margin-left: 2px; }
   .cumulative-tag { font-size: 0.6rem; color: var(--accent-light); letter-spacing: 0.08em; margin-left: 4px; }
 
@@ -536,10 +520,10 @@
     color: var(--ink);
     padding: 5px 8px;
     outline: none;
-    cursor: pointer;
     transition: border-color 0.15s;
     min-width: 80px;
   }
+  select.toolbar-select { cursor: pointer; }
   .toolbar-select:focus { border-color: var(--accent); }
   .toolbar-divider {
     width: 1px; height: 20px;
@@ -648,6 +632,12 @@
 
     <!-- Filter / Sort toolbar -->
     <div class="list-toolbar">
+      <div class="toolbar-group" style="flex:1 1 200px">
+        <span class="toolbar-label">備註搜尋</span>
+        <input type="text" class="toolbar-select" id="filter-notes" oninput="applyFilters()"
+               placeholder="關鍵字…" style="flex:1;min-width:120px">
+      </div>
+      <div class="toolbar-divider"></div>
       <div class="toolbar-group">
         <span class="toolbar-label">豆款</span>
         <select class="toolbar-select" id="filter-bean" onchange="applyFilters()">
@@ -950,12 +940,14 @@ function applyFilters() {
   const filterHI      = document.getElementById('filter-hi')?.value      || '';
   const filterRoast   = document.getElementById('filter-roast')?.value   || '';
   const filterStarred = document.getElementById('filter-starred')?.value ?? '';
+  const filterNotes   = (document.getElementById('filter-notes')?.value  || '').trim().toLowerCase();
 
   let list = allBrews.filter(b => {
     if (filterBean    && b.beans_display !== filterBean)               return false;
     if (filterHI      && (b.H_I ?? b.h_i) !== filterHI)               return false;
     if (filterRoast   && !(b.beans_display || '').includes(filterRoast)) return false;
     if (filterStarred !== '' && String(b.starred ? 1 : 0) !== filterStarred) return false;
+    if (filterNotes   && !(b.notes || '').toLowerCase().includes(filterNotes)) return false;
     return true;
   });
 
@@ -1122,44 +1114,32 @@ function renderDetail(b) {
 
 function renderPoursTable(pours, mode) {
   if (!pours.length) return '<div style="color:var(--ink-faint);font-size:0.8rem">無注水紀錄</div>';
-  const isCum = mode === 'cumulative';
-  const tag = isCum ? ' <span class="cumulative-tag">累積</span>' : '';
-  let cumVol = 0, cumTime = 0;
-
+  let cumVol=0, cumDur=0, cumWait=0;
   const rows = pours.map(p => {
-    cumVol  += (p.volume_ml  || 0);
-    const dur  = p.duration_s || 0;
-    const wait = p.wait_s     || 0;
-
-    const displayVol  = isCum ? cumVol : p.volume_ml;
-    let displayDur, displayWait;
-    if (isCum) {
-      cumTime += dur;
-      displayDur = cumTime;
-      cumTime += wait;
-      displayWait = cumTime;
-    } else {
-      displayDur  = dur;
-      displayWait = wait;
-    }
-
     const isBloom = p.pour_order === 0;
-    const label   = isBloom ? '悶蒸' : `第 ${p.pour_order} 注`;
-
-    return `
-    <div class="pour-detail-row">
-      <div class="pour-detail-main">
-        <span class="pour-label ${isBloom?'bloom':''}">${label}</span>
-        <span class="pour-detail-vol">${displayVol??'—'}<span class="pour-unit">ml</span></span>
-        <span class="pour-detail-field">注水時間 <strong>${displayDur??'—'}</strong><span class="pour-unit">s</span>${tag}</span>
-      </div>
-      <div class="pour-detail-sub">
-        <span class="pour-detail-field">等待時間 <strong>${displayWait??'—'}</strong><span class="pour-unit">s</span>${tag}</span>
-      </div>
-    </div>`;
+    const label = isBloom ? '悶蒸' : `第 ${p.pour_order} 注`;
+    cumVol  += (p.volume_ml  || 0);
+    cumDur  += (p.duration_s || 0);
+    cumWait += (p.wait_s     || 0);
+    const vol  = mode==='cumulative' ? cumVol  : p.volume_ml;
+    const dur  = mode==='cumulative' ? cumDur  : p.duration_s;
+    const wait = mode==='cumulative' ? cumWait : p.wait_s;
+    const tag  = mode==='cumulative' ? '<span class="cumulative-tag">累計</span>' : '';
+    const waitLabel = isBloom ? '悶蒸時間' : '萃取時間';
+    return `<tr>
+      <td><span class="pour-label ${isBloom?'bloom':''}">${label}</span></td>
+      <td><span class="pour-val">${vol??'—'}</span><span class="pour-unit">ml</span>${tag}</td>
+      <td><span class="pour-val">${dur??'—'}</span><span class="pour-unit">s</span>${tag}</td>
+      <td>
+        <span style="font-size:0.62rem;color:var(--ink-faint);display:block;margin-bottom:2px">${waitLabel}</span>
+        <span class="pour-val">${wait??'—'}</span><span class="pour-unit">s</span>${tag}
+      </td>
+    </tr>`;
   }).join('');
-
-  return `<div class="pour-detail-list">${rows}</div>`;
+  return `<table class="pours-table">
+    <thead><tr><th></th><th>水量 (ml)</th><th>注水時間 (s)</th><th>等待時間 (s)</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
 }
 
 function setMode(mode) {
