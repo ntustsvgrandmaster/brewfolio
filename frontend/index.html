@@ -325,7 +325,6 @@
   }
   .cancel-btn:hover { border-color: var(--ink); color: var(--ink); }
 
-  /* ── Bean list ── */
   .bean-item {
     display: flex; align-items: center; justify-content: space-between;
     padding: 10px 0; border-bottom: 1px dashed var(--rule); font-size: 0.85rem;
@@ -338,6 +337,51 @@
     letter-spacing: 0.08em; transition: color 0.15s;
   }
   .bean-del-btn:hover { color: var(--danger); }
+  .bean-edit-btn {
+    background: none; border: none; color: var(--ink-faint);
+    font-size: 0.7rem; cursor: pointer; padding: 4px 8px;
+    letter-spacing: 0.08em; transition: color 0.15s;
+  }
+  .bean-edit-btn:hover { color: var(--accent); }
+  .bean-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+
+  /* Inline bean edit form */
+  .bean-edit-form {
+    display: none; width: 100%;
+    padding: 12px 0 10px;
+    border-bottom: 1px dashed var(--rule);
+  }
+  .bean-edit-form.open { display: block; }
+  .bean-edit-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 10px; margin-bottom: 10px;
+  }
+  .bean-edit-grid input {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.82rem;
+    background: var(--bg); border: 1px solid var(--rule); color: var(--ink);
+    padding: 6px 9px; outline: none; transition: border-color 0.15s; width: 100%;
+  }
+  .bean-edit-grid input:focus { border-color: var(--accent); }
+  .bean-edit-grid label {
+    font-size: 0.58rem; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-faint); display: block; margin-bottom: 3px;
+  }
+  .bean-edit-btns { display: flex; gap: 8px; }
+  .bean-save-btn {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    background: var(--accent); color: #fff; border: none;
+    padding: 6px 16px; cursor: pointer; transition: background 0.15s;
+  }
+  .bean-save-btn:hover { background: var(--accent-light); }
+  .bean-edit-cancel-btn {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    background: none; border: 1px solid var(--rule); color: var(--ink-faint);
+    padding: 6px 12px; cursor: pointer;
+  }
+  .bean-edit-error { font-size: 0.72rem; color: var(--danger); margin-top: 6px; }
 
   /* ── Delete modal ── */
   .modal-overlay {
@@ -1027,7 +1071,7 @@ function renderDetail(b) {
     <div class="detail-header">
       <div class="detail-header-row">
         <div style="display:flex;align-items:center;gap:0">
-          <div class="detail-beans">${b.beans_name || '未知豆款'}</div>
+          <div class="detail-beans">${b.beans_display || b.beans_name || '未知豆款'}</div>
           <button class="detail-star-btn${b.starred ? ' filled' : ''}"
                   id="detail-star-btn"
                   onclick="toggleStarred(${b.id}, this)"
@@ -1456,12 +1500,65 @@ async function loadBeansList() {
       return;
     }
     el.innerHTML = beans.map(b => `
-      <div class="bean-item">
-        <span class="bean-name">${[b.beans_name, b.process, b.roast_level].filter(Boolean).join(' ')}</span>
-        <button class="bean-del-btn" onclick="deleteBean(${b.id}, '${b.beans_name}')">刪除</button>
+      <div class="bean-item" id="bean-item-${b.id}">
+        <span class="bean-name">${[b.beans_name, b.process, b.roast_level].filter(Boolean).join(' · ')}</span>
+        <div class="bean-actions">
+          <button class="bean-edit-btn" onclick="toggleBeanEdit(${b.id})">編輯</button>
+          <button class="bean-del-btn" onclick="deleteBean(${b.id}, '${b.beans_name.replace(/'/g,"\\'")}')">刪除</button>
+        </div>
+      </div>
+      <div class="bean-edit-form" id="bean-edit-form-${b.id}">
+        <div class="bean-edit-grid">
+          <div><label>豆款名稱 *</label><input type="text" id="bean-edit-name-${b.id}" value="${escAttr(b.beans_name)}"></div>
+          <div><label>處理法</label><input type="text" id="bean-edit-process-${b.id}" value="${escAttr(b.process||'')}"></div>
+          <div><label>烘焙度</label><input type="text" id="bean-edit-roast-${b.id}" value="${escAttr(b.roast_level||'')}"></div>
+        </div>
+        <div class="bean-edit-btns">
+          <button class="bean-save-btn" onclick="saveBean(${b.id})">儲存</button>
+          <button class="bean-edit-cancel-btn" onclick="toggleBeanEdit(${b.id})">取消</button>
+        </div>
+        <div class="bean-edit-error" id="bean-edit-error-${b.id}"></div>
       </div>`).join('');
   } catch (e) {
     el.innerHTML = `<div class="error-msg">⚠ 載入失敗：${e.message}</div>`;
+  }
+}
+
+function escAttr(str) {
+  return (str || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
+
+function toggleBeanEdit(id) {
+  const form = document.getElementById(`bean-edit-form-${id}`);
+  const isOpen = form.classList.toggle('open');
+  if (isOpen) {
+    document.getElementById(`bean-edit-name-${id}`).focus();
+  }
+}
+
+async function saveBean(id) {
+  const nameEl    = document.getElementById(`bean-edit-name-${id}`);
+  const processEl = document.getElementById(`bean-edit-process-${id}`);
+  const roastEl   = document.getElementById(`bean-edit-roast-${id}`);
+  const errEl     = document.getElementById(`bean-edit-error-${id}`);
+  errEl.textContent = '';
+  const beans_name = nameEl.value.trim();
+  if (!beans_name) { errEl.textContent = '請輸入豆款名稱'; return; }
+  try {
+    const res = await fetch(`${API}/beans/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        beans_name,
+        process:     processEl.value.trim() || null,
+        roast_level: roastEl.value.trim()   || null,
+      }),
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
+    showToast('✓ 豆款已更新');
+    loadBeansList();
+  } catch (e) {
+    errEl.textContent = `⚠ ${e.message}`;
   }
 }
 

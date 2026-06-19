@@ -20,15 +20,15 @@ const pool = mysql.createPool({
 
 // ── Brews ────────────────────────────────────────────────
 
-// GET 列表：顯示快照的 beans_name（組合好給前端用），含 myBeans JOIN
+// GET 列表：優先從 myBeans 取豆款資料，找不到才 fallback 到 brews 快照
 app.get('/api/brews', async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT b.id, b.brewed_at, b.H_I, b.starred, b.notes,
               TRIM(CONCAT_WS(' ',
-                COALESCE(mb.beans_name, b.beans_name),
-                COALESCE(mb.process,    b.process),
-                COALESCE(mb.roast_level,b.roast_level)
+                IF(b.bean_id IS NOT NULL AND mb.id IS NOT NULL, mb.beans_name, b.beans_name),
+                IF(b.bean_id IS NOT NULL AND mb.id IS NOT NULL, mb.process,    b.process),
+                IF(b.bean_id IS NOT NULL AND mb.id IS NOT NULL, mb.roast_level,b.roast_level)
               )) AS beans_display
        FROM brews b
        LEFT JOIN myBeans mb ON b.bean_id = mb.id
@@ -38,17 +38,26 @@ app.get('/api/brews', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// GET 單筆
+// GET 單筆：優先從 myBeans 取豆款資料，找不到才 fallback 到 brews 快照
 app.get('/api/brews/:id', async (req, res) => {
   try {
     const [[brew]] = await pool.query(
-      `SELECT id, brewed_at,
-              bean_id, beans_name, process, roast_level,
-              TRIM(CONCAT_WS(' ', beans_name, process, roast_level)) AS beans_display,
-              grind, H_I AS H_I, bean_weight,
-              water_vol, water_temp, ice_vol,
-              sour, sweet, bitter, richness, aroma, notes, starred
-       FROM brews WHERE id = ?`,
+      `SELECT b.id, b.brewed_at,
+              b.bean_id,
+              IF(b.bean_id IS NOT NULL AND mb.id IS NOT NULL, mb.beans_name, b.beans_name) AS beans_name,
+              IF(b.bean_id IS NOT NULL AND mb.id IS NOT NULL, mb.process,    b.process)    AS process,
+              IF(b.bean_id IS NOT NULL AND mb.id IS NOT NULL, mb.roast_level,b.roast_level) AS roast_level,
+              TRIM(CONCAT_WS(' ',
+                IF(b.bean_id IS NOT NULL AND mb.id IS NOT NULL, mb.beans_name, b.beans_name),
+                IF(b.bean_id IS NOT NULL AND mb.id IS NOT NULL, mb.process,    b.process),
+                IF(b.bean_id IS NOT NULL AND mb.id IS NOT NULL, mb.roast_level,b.roast_level)
+              )) AS beans_display,
+              b.grind, b.H_I AS H_I, b.bean_weight,
+              b.water_vol, b.water_temp, b.ice_vol,
+              b.sour, b.sweet, b.bitter, b.richness, b.aroma, b.notes, b.starred
+       FROM brews b
+       LEFT JOIN myBeans mb ON b.bean_id = mb.id
+       WHERE b.id = ?`,
       [req.params.id]
     );
     if (!brew) return res.status(404).json({ error: 'Not found' });
@@ -184,6 +193,21 @@ app.post('/api/beans', async (req, res) => {
       [beans_name.trim(), process?.trim() || null, roast_level?.trim() || null]
     );
     res.json({ id: result.insertId });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// PUT 編輯豆款
+app.put('/api/beans/:id', async (req, res) => {
+  try {
+    const { beans_name, process, roast_level } = req.body;
+    if (!beans_name || !beans_name.trim())
+      return res.status(400).json({ error: '豆款名稱不得為空' });
+    const [result] = await pool.query(
+      'UPDATE myBeans SET beans_name = ?, process = ?, roast_level = ? WHERE id = ?',
+      [beans_name.trim(), process?.trim() || null, roast_level?.trim() || null, req.params.id]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Not found' });
+    res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
