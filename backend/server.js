@@ -10,10 +10,11 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../frontend')));
 
 const pool = mysql.createPool({
-  host: 'localhost',
-  user: 'root',
-  password: '',       // ← 填入你的 root 密碼（若有）
-  database: 'coffee', // ← 填入你的資料庫名稱
+  host: process.env.DB_HOST || 'localhost',
+  port: Number(process.env.DB_PORT || 3306),
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'coffee',
   waitForConnections: true,
   connectionLimit: 10,
 });
