@@ -763,6 +763,10 @@
   <div id="view-add" class="view">
     <button class="back-btn" onclick="showList()">← 返回列表</button>
     <div class="form-title">新增沖煮紀錄</div>
+    <div id="brew-source" class="form-section" hidden>
+      <span id="brew-source-label"></span>
+      <button type="button" class="notes-edit-btn" onclick="clearBrewSource()">移除來源連結</button>
+    </div>
 
     <!-- 基本資料 -->
     <div class="form-section accent-border">
@@ -946,7 +950,7 @@ function setView(id) {
 }
 function showList()   { setView('view-list');   loadList(); }
 function showDetail() { setView('view-detail'); }
-function showAdd()    { setView('view-add');    initForm(); loadBeansIntoSelect(); }
+function showAdd()    { setView('view-add');    initForm(); loadBeansIntoSelect(null, formRevision); }
 function showBeans()  { setView('view-beans');  loadBeansList(); }
 
 // ── Load List ─────────────────────────────────────────────
@@ -1121,6 +1125,10 @@ function renderDetail(b) {
         <span class="hi-badge">${h_i || '—'}</span>
         <span class="detail-date" style="color:var(--ink-faint)">ID #${b.id}</span>
       </div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:16px">
+        <button type="button" class="add-btn" onclick="brewAgain()">再煮一杯</button>
+        ${b.source_brew_id ? `<button type="button" class="notes-edit-btn" style="margin-top:0" onclick="loadDetail(${Number(b.source_brew_id)})">沿用紀錄 #${Number(b.source_brew_id)} →</button>` : ''}
+      </div>
     </div>
 
     <div class="detail-section accent-border">
@@ -1236,8 +1244,44 @@ function setMode(mode) {
 // ── Add Form ──────────────────────────────────────────────
 const SCORE_FIELDS = [['酸度','sour'],['甜度','sweet'],['苦味','bitter'],['濃郁度','richness'],['香氣','aroma']];
 const scoreValues = {};
+let sourceBrewId = null;
+let formRevision = 0;
+let beansReady = false;
+
+function clearBrewSource() {
+  sourceBrewId = null;
+  document.getElementById('brew-source').hidden = true;
+  document.getElementById('brew-source-label').textContent = '';
+}
+
+async function brewAgain() {
+  if (!currentBrew) return;
+  const source = currentBrew;
+  setView('view-add');
+  initForm();
+  sourceBrewId = source.id;
+  document.getElementById('brew-source').hidden = false;
+  document.getElementById('brew-source-label').textContent = `沿用紀錄 #${source.id} 的配方；時間、評分與心得請重新記錄。`;
+  const fields = { 'f-bean-weight': 'bean_weight', 'f-grind': 'grind', 'f-water-vol': 'water_vol', 'f-water-temp': 'water_temp', 'f-ice-vol': 'ice_vol' };
+  Object.entries(fields).forEach(([id, key]) => document.getElementById(id).value = source[key] ?? '');
+  document.getElementById('f-hi').value = source.H_I ?? source.h_i ?? 'H';
+  if (source.pours?.length) {
+    document.getElementById('pour-rows').innerHTML = '';
+    addBloomRow();
+    [...source.pours].sort((a, b) => a.pour_order - b.pour_order).forEach(p => {
+      if (p.pour_order !== 0) addPourRow();
+      document.getElementById(`pour-${p.pour_order === 0 ? 0 : pourCount}-vol`).value = p.volume_ml ?? '';
+    });
+  }
+  await loadBeansIntoSelect(source.bean_id, formRevision);
+}
 
 function initForm() {
+  formRevision++;
+  beansReady = false;
+  clearBrewSource();
+  tReset();
+  document.getElementById('timer-panel').classList.remove('open');
   // reset fields
   ['f-bean-weight','f-grind','f-water-vol','f-water-temp','f-ice-vol'].forEach(id => {
     document.getElementById(id).value = '';
@@ -1334,8 +1378,17 @@ async function submitBrew() {
   const btn = document.getElementById('submit-btn');
   const errEl = document.getElementById('form-error');
   errEl.innerHTML = '';
+  if (!beansReady) {
+    errEl.textContent = '豆款尚未載入完成，請稍候；若載入失敗，請重新開啟表單。';
+    return;
+  }
+  if (sourceBrewId !== null && !document.getElementById('f-beans').value) {
+    errEl.textContent = '請選擇這次沖煮使用的豆款。';
+    return;
+  }
 
   const brew = {
+    source_brew_id: sourceBrewId,
     bean_id:      parseInt(document.getElementById('f-beans').value) || null,
     bean_weight:  getFloat('f-bean-weight'),
     grind:        getFloat('f-grind'),
@@ -1513,17 +1566,30 @@ async function toggleStarred(id, btnEl) {
 }
 
 // ── Beans management ─────────────────────────────────────
-async function loadBeansIntoSelect() {
+async function loadBeansIntoSelect(selectedBeanId = null, revision = formRevision) {
+  const sel = document.getElementById('f-beans');
+  sel.disabled = true;
+  sel.innerHTML = '<option value="">載入豆款中…</option>';
   try {
     const res = await fetch(`${API}/beans`);
+    if (!res.ok) throw new Error('無法載入豆款');
     const beans = await res.json();
-    const sel = document.getElementById('f-beans');
+    if (revision !== formRevision) return;
     sel.innerHTML = '<option value="">— 選擇豆款 —</option>' +
       beans.map(b => {
         const label = [b.beans_name, b.process, b.roast_level].filter(Boolean).join(' ');
-        return `<option value="${b.id}">${label}</option>`;
+        return `<option value="${b.id}">${escAttr(label)}</option>`;
       }).join('');
-  } catch (e) { console.error('載入豆款失敗', e); }
+    if (selectedBeanId != null) sel.value = String(selectedBeanId);
+    beansReady = true;
+    if (sourceBrewId !== null && !sel.value) {
+      document.getElementById('form-error').textContent = '原豆款已不在豆款清單，請重新選擇豆款。';
+    }
+  } catch (e) {
+    if (revision === formRevision) document.getElementById('form-error').textContent = '豆款載入失敗，請重新開啟表單後再試。';
+  } finally {
+    if (revision === formRevision) sel.disabled = false;
+  }
 }
 
 async function loadBeansList() {

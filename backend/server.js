@@ -44,7 +44,7 @@ app.get('/api/brews/:id', async (req, res) => {
   try {
     const [[brew]] = await pool.query(
       `SELECT b.id, b.brewed_at,
-              b.bean_id,
+              b.bean_id, b.source_brew_id,
               IF(b.bean_id IS NOT NULL AND mb.id IS NOT NULL, mb.beans_name, b.beans_name) AS beans_name,
               IF(b.bean_id IS NOT NULL AND mb.id IS NOT NULL, mb.process,    b.process)    AS process,
               IF(b.bean_id IS NOT NULL AND mb.id IS NOT NULL, mb.roast_level,b.roast_level) AS roast_level,
@@ -72,10 +72,23 @@ app.get('/api/brews/:id', async (req, res) => {
 
 // POST 新增沖煮：收 bean_id，自動快照豆款資訊
 app.post('/api/brews', async (req, res) => {
-  const conn = await pool.getConnection();
+  const { brew, pours = [] } = req.body;
+  if (!brew || typeof brew !== 'object' || Array.isArray(brew))
+    return res.status(400).json({ error: '缺少沖煮資料' });
+  const sourceId = brew.source_brew_id ?? null;
+  if (sourceId !== null && (!Number.isSafeInteger(sourceId) || sourceId <= 0 || sourceId > 2147483647))
+    return res.status(400).json({ error: '來源紀錄 ID 不正確' });
+  let conn;
   try {
+    conn = await pool.getConnection();
     await conn.beginTransaction();
-    const { brew, pours = [] } = req.body;
+    if (sourceId !== null) {
+      const [[source]] = await conn.query('SELECT id FROM brews WHERE id = ? FOR SHARE', [sourceId]);
+      if (!source) {
+        await conn.rollback();
+        return res.status(400).json({ error: '來源紀錄已不存在，請移除來源連結後再儲存' });
+      }
+    }
 
     // 快照：從 myBeans 撈當下的豆款資料
     let beans_name = null, process = null, roast_level = null;
@@ -91,16 +104,16 @@ app.post('/api/brews', async (req, res) => {
       `INSERT INTO brews
          (bean_id, beans_name, process, roast_level,
           grind, H_I, bean_weight, water_vol, water_temp, ice_vol,
-          sour, sweet, bitter, richness, aroma, notes)
+          sour, sweet, bitter, richness, aroma, notes, source_brew_id)
        VALUES (?, ?, ?, ?,
                ?, ?, ?, ?, ?, ?,
-               ?, ?, ?, ?, ?, ?)`,
+               ?, ?, ?, ?, ?, ?, ?)`,
       [
         brew.bean_id, beans_name, process, roast_level,
         brew.grind, brew.H_I, brew.bean_weight,
         brew.water_vol, brew.water_temp, brew.ice_vol,
         brew.sour, brew.sweet, brew.bitter, brew.richness, brew.aroma,
-        brew.notes || null,
+        brew.notes || null, sourceId,
       ]
     );
     const brewId = result.insertId;
@@ -115,10 +128,10 @@ app.post('/api/brews', async (req, res) => {
     await conn.commit();
     res.json({ id: brewId });
   } catch (err) {
-    await conn.rollback();
+    if (conn) await conn.rollback();
     res.status(500).json({ error: err.message });
   } finally {
-    conn.release();
+    if (conn) conn.release();
   }
 });
 
