@@ -788,7 +788,7 @@
         </div>
         <div class="form-field">
           <label>H / I</label>
-          <select id="f-hi">
+          <select id="f-hi" onchange="applyHotIceDefault()">
             <option value="H">H（熱）</option>
             <option value="I">I（冰）</option>
           </select>
@@ -1254,6 +1254,12 @@ function clearBrewSource() {
   document.getElementById('brew-source-label').textContent = '';
 }
 
+function applyHotIceDefault() {
+  if (document.getElementById('f-hi').value === 'H') {
+    document.getElementById('f-ice-vol').value = '0';
+  }
+}
+
 async function brewAgain() {
   if (!currentBrew) return;
   const source = currentBrew;
@@ -1265,6 +1271,7 @@ async function brewAgain() {
   const fields = { 'f-bean-weight': 'bean_weight', 'f-grind': 'grind', 'f-water-vol': 'water_vol', 'f-water-temp': 'water_temp', 'f-ice-vol': 'ice_vol' };
   Object.entries(fields).forEach(([id, key]) => document.getElementById(id).value = source[key] ?? '');
   document.getElementById('f-hi').value = source.H_I ?? source.h_i ?? 'H';
+  applyHotIceDefault();
   if (source.pours?.length) {
     document.getElementById('pour-rows').innerHTML = '';
     addBloomRow();
@@ -1289,6 +1296,7 @@ function initForm() {
   document.getElementById('f-beans').value = '';
   document.getElementById('f-notes').value = '';
   document.getElementById('f-hi').value = 'H';
+  applyHotIceDefault();
   document.getElementById('form-error').innerHTML = '';
 
   // reset scores

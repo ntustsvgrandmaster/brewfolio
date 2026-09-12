@@ -1,0 +1,375 @@
+openapi: 3.0.3
+info:
+  title: Brewfolio API
+  version: 0.1.0
+  description: API spec for reading coffee beans and brew records.
+servers:
+  - url: http://localhost:3001
+    description: Local development server
+tags:
+  - name: Brews
+    description: Coffee brew records
+  - name: Beans
+    description: Coffee bean catalog
+paths:
+  /api/brews:
+    get:
+      tags:
+        - Brews
+      summary: List brew records
+      description: Returns brew records ordered by brew time, newest first.
+      operationId: listBrews
+      responses:
+        '200':
+          description: Brew record summaries.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BrewSummary'
+              examples:
+                default:
+                  value:
+                    - id: 12
+                      brewed_at: '2026-09-12T08:30:00.000Z'
+                      H_I: H
+                      starred: 1
+                      notes: First try with higher water temperature.
+                      beans_display: Panama Geisha Washed Light
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/brews/{id}:
+    get:
+      tags:
+        - Brews
+      summary: Get one brew record
+      description: Returns one brew record with its pour steps.
+      operationId: getBrew
+      parameters:
+        - $ref: '#/components/parameters/BrewId'
+      responses:
+        '200':
+          description: A brew record with pour details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrewDetail'
+              examples:
+                default:
+                  value:
+                    id: 12
+                    brewed_at: '2026-09-12T08:30:00.000Z'
+                    bean_id: 3
+                    source_brew_id: null
+                    beans_name: Panama Geisha
+                    process: Washed
+                    roast_level: Light
+                    beans_display: Panama Geisha Washed Light
+                    grind: 4
+                    H_I: H
+                    bean_weight: 25
+                    water_vol: 450
+                    water_temp: 94
+                    ice_vol: 0
+                    sour: 3
+                    sweet: 4
+                    bitter: 1
+                    richness: 4
+                    aroma: 5
+                    notes: Higher water temperature, coarser grind, high brew ratio.
+                    starred: 1
+                    pours:
+                      - id: 21
+                        brew_id: 12
+                        pour_order: 0
+                        volume_ml: 90
+                        duration_s: 15
+                        wait_s: 25
+                      - id: 22
+                        brew_id: 12
+                        pour_order: 1
+                        volume_ml: 225
+                        duration_s: 30
+                        wait_s: 30
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/beans:
+    get:
+      tags:
+        - Beans
+      summary: List coffee beans
+      description: Returns all saved coffee beans ordered by bean name.
+      operationId: listBeans
+      responses:
+        '200':
+          description: Coffee bean catalog.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Bean'
+              examples:
+                default:
+                  value:
+                    - id: 3
+                      beans_name: Panama Geisha
+                      process: Washed
+                      roast_level: Light
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+components:
+  parameters:
+    BrewId:
+      name: id
+      in: path
+      required: true
+      description: Brew record ID.
+      schema:
+        type: integer
+        minimum: 1
+      example: 12
+  responses:
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Not found
+    InternalServerError:
+      description: Unexpected server or database error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Database connection failed
+  schemas:
+    Bean:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          example: 3
+        beans_name:
+          type: string
+          nullable: true
+          example: Panama Geisha
+        process:
+          type: string
+          nullable: true
+          example: Washed
+        roast_level:
+          type: string
+          nullable: true
+          example: Light
+      required:
+        - id
+        - beans_name
+        - process
+        - roast_level
+    BrewSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          example: 12
+        brewed_at:
+          type: string
+          format: date-time
+          example: '2026-09-12T08:30:00.000Z'
+        H_I:
+          $ref: '#/components/schemas/BrewMethod'
+        starred:
+          type: integer
+          enum:
+            - 0
+            - 1
+          example: 1
+        notes:
+          type: string
+          nullable: true
+          example: First try with higher water temperature.
+        beans_display:
+          type: string
+          example: Panama Geisha Washed Light
+      required:
+        - id
+        - brewed_at
+        - H_I
+        - starred
+        - notes
+        - beans_display
+    BrewDetail:
+      allOf:
+        - $ref: '#/components/schemas/BrewBase'
+        - type: object
+          additionalProperties: false
+          properties:
+            pours:
+              type: array
+              items:
+                $ref: '#/components/schemas/Pour'
+          required:
+            - pours
+    BrewBase:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          example: 12
+        brewed_at:
+          type: string
+          format: date-time
+          example: '2026-09-12T08:30:00.000Z'
+        bean_id:
+          type: integer
+          nullable: true
+          example: 3
+        source_brew_id:
+          type: integer
+          nullable: true
+          example: null
+        beans_name:
+          type: string
+          nullable: true
+          example: Panama Geisha
+        process:
+          type: string
+          nullable: true
+          example: Washed
+        roast_level:
+          type: string
+          nullable: true
+          example: Light
+        beans_display:
+          type: string
+          nullable: true
+          example: Panama Geisha Washed Light
+        grind:
+          type: number
+          nullable: true
+          example: 4
+        H_I:
+          $ref: '#/components/schemas/BrewMethod'
+        bean_weight:
+          type: number
+          nullable: true
+          example: 25
+        water_vol:
+          type: integer
+          nullable: true
+          example: 450
+        water_temp:
+          type: integer
+          nullable: true
+          example: 94
+        ice_vol:
+          type: integer
+          nullable: true
+          example: 0
+        sour:
+          $ref: '#/components/schemas/Rating'
+        sweet:
+          $ref: '#/components/schemas/Rating'
+        bitter:
+          $ref: '#/components/schemas/Rating'
+        richness:
+          $ref: '#/components/schemas/Rating'
+        aroma:
+          $ref: '#/components/schemas/Rating'
+        notes:
+          type: string
+          nullable: true
+          example: Higher water temperature, coarser grind, high brew ratio.
+        starred:
+          type: integer
+          enum:
+            - 0
+            - 1
+          example: 1
+      required:
+        - id
+        - brewed_at
+        - bean_id
+        - source_brew_id
+        - beans_name
+        - process
+        - roast_level
+        - beans_display
+        - grind
+        - H_I
+        - bean_weight
+        - water_vol
+        - water_temp
+        - ice_vol
+        - sour
+        - sweet
+        - bitter
+        - richness
+        - aroma
+        - notes
+        - starred
+    BrewMethod:
+      type: string
+      enum:
+        - H
+        - I
+      description: H means hot brew; I means iced brew.
+      example: H
+    Rating:
+      type: integer
+      nullable: true
+      minimum: 1
+      maximum: 5
+      example: 4
+    Pour:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          example: 21
+        brew_id:
+          type: integer
+          example: 12
+        pour_order:
+          type: integer
+          minimum: 0
+          example: 0
+        volume_ml:
+          type: integer
+          nullable: true
+          example: 90
+        duration_s:
+          type: integer
+          nullable: true
+          example: 15
+        wait_s:
+          type: integer
+          nullable: true
+          example: 25
+      required:
+        - id
+        - brew_id
+        - pour_order
+        - volume_ml
+        - duration_s
+        - wait_s
+    Error:
+      type: object
+      additionalProperties: false
+      properties:
+        error:
+          type: string
+          example: Not found
+      required:
+        - error
