@@ -1,0 +1,12 @@
+{
+  "watch": ["backend", "mcp"],
+  "ext": "js,mjs,cjs,json",
+  "ignore": [
+    "**/node_modules/**",
+    "baddy_work/**",
+    "BADDY_BADDY_完成樂譜/**",
+    "database/**/bin/**",
+    "database/**/obj/**"
+  ],
+  "delay": 300
+}

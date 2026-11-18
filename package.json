@@ -5,13 +5,19 @@
   "scripts": {
     "test": "node --test tests/*.test.js",
     "start": "node --env-file-if-exists=.env backend/server.js",
-    "db:migrate": "node --env-file-if-exists=.env database/migrate.js"
+    "db:migrate": "node --env-file-if-exists=.env database/migrate.js",
+    "mcp:start": "node --env-file-if-exists=.env mcp/start.js",
+    "mcp:demo": "node mcp/start.js --demo --http",
+    "mcp:http": "node --env-file-if-exists=.env mcp/start.js --http",
+    "mcp:check": "node --env-file-if-exists=.env scripts/mcp-check.js"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "bonjour-service": "^1.4.0",
     "cors": "^2.8.5",
     "express": "^4.18.2",
-    "mysql2": "^3.6.0"
+    "mysql2": "^3.6.0",
+    "zod": "^3.25.76"
   },
   "engines": {
     "node": ">=22.9.0"

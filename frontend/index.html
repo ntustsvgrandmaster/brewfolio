@@ -37,6 +37,7 @@
     color: var(--bg);
     padding: 18px 40px;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 16px;
     border-bottom: 3px solid var(--accent);
@@ -47,12 +48,23 @@
     letter-spacing: 0.04em;
     flex: 1;
   }
+  .home-btn {
+    border: 0; padding: 0; background: none;
+    color: inherit; font: inherit; letter-spacing: inherit; cursor: pointer;
+  }
+  .home-btn:hover { color: var(--rule); }
+  .home-btn:focus-visible { outline: 2px solid var(--rule); outline-offset: 4px; }
   header .header-sub {
     font-size: 0.7rem;
     color: var(--ink-faint);
     letter-spacing: 0.12em;
     text-transform: uppercase;
   }
+  .header-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .header-actions .manage-btn { background: var(--ink-light); }
+  #detail-dripper-form[hidden], #dripper-cancel[hidden] { display: none; }
+  .detail-dripper { grid-column: 1 / -1; min-width: 0; overflow-wrap: anywhere; }
+  #detail-dripper-form { max-width: 320px; }
   .add-btn {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 0.7rem;
@@ -569,6 +581,16 @@
   }
   select.toolbar-select { cursor: pointer; }
   .toolbar-select:focus { border-color: var(--accent); }
+  #filter-bean { max-width: min(56vw, 22rem); }
+  .clear-filter-btn {
+    display: grid; place-items: center;
+    flex: 0 0 23px; width: 23px; height: 23px;
+    padding: 0; border-radius: 50%;
+    border: 1px solid var(--rule); background: none;
+    color: var(--ink-light); font: inherit; line-height: 1; cursor: pointer;
+  }
+  .clear-filter-btn[hidden] { display: none; }
+  .clear-filter-btn:hover { border-color: var(--accent); color: var(--accent); }
   .toolbar-divider {
     width: 1px; height: 20px;
     background: var(--rule);
@@ -664,6 +686,18 @@
     transition: all 0.15s;
   }
   .notes-edit-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .detail-actions {
+    display: flex; flex-wrap: wrap; align-items: center;
+    gap: 12px; margin-top: 16px;
+  }
+  .detail-actions .notes-edit-btn { margin-top: 0; }
+  .detail-actions .brew-action {
+    inline-size: 9rem; max-inline-size: 100%;
+    padding: 8px 10px;
+    font-size: 0.7rem; line-height: 1.4; letter-spacing: 0.1em;
+    white-space: nowrap;
+  }
+  .detail-actions .add-btn { border: 1px solid transparent; }
   .notes-textarea {
     font-family: 'IBM Plex Mono', monospace; font-size: 0.9rem;
     background: var(--bg); border: 1px solid var(--rule); color: var(--ink);
@@ -693,10 +727,13 @@
 <body>
 
 <header>
-  <h1>☕ 咖啡日誌</h1>
+  <h1><button type="button" class="home-btn" onclick="showHome()">☕ 咖啡日誌</button></h1>
   <span class="header-sub">Brew Log</span>
-  <button class="add-btn" style="background:var(--ink-light);margin-right:8px" onclick="showBeans()">豆款管理</button>
-  <button class="add-btn" onclick="showAdd()">+ 加入紀錄</button>
+  <div class="header-actions">
+    <button class="add-btn manage-btn" onclick="showBeans()">豆款管理</button>
+    <button class="add-btn manage-btn" onclick="showDrippers()">濾杯管理</button>
+    <button class="add-btn" onclick="showAdd()">+ 加入紀錄</button>
+  </div>
 </header>
 
 <div class="container">
@@ -715,10 +752,12 @@
       </div>
       <div class="toolbar-divider"></div>
       <div class="toolbar-group">
-        <span class="toolbar-label">豆款</span>
+        <label class="toolbar-label" for="filter-bean">豆款</label>
         <select class="toolbar-select" id="filter-bean" onchange="applyFilters()">
           <option value="">全部</option>
         </select>
+        <button type="button" class="clear-filter-btn" id="clear-bean-filter"
+                aria-label="清除豆款篩選" title="清除豆款篩選" onclick="clearBeanFilter()" hidden>×</button>
       </div>
       <div class="toolbar-group">
         <span class="toolbar-label">H / I</span>
@@ -777,6 +816,11 @@
           <select id="f-beans">
             <option value="">— 選擇豆款 —</option>
           </select>
+        </div>
+        <div class="form-field" style="grid-column: span 2">
+          <label for="f-dripper">濾杯（選填）</label>
+          <select id="f-dripper"><option value="">未記錄</option></select>
+          <div id="brew-dripper-status" class="bean-edit-error" role="status"></div>
         </div>
         <div class="form-field">
           <label>豆量 (g)</label>
@@ -893,6 +937,32 @@
     </div>
   </div>
 
+  <div id="view-drippers" class="view">
+    <button class="back-btn" onclick="showList()">← 返回列表</button>
+    <div class="form-title">濾杯管理</div>
+    <form class="form-section accent-border" onsubmit="saveDripper(event)">
+      <div class="form-section-title" id="dripper-form-title">新增濾杯</div>
+      <div class="form-grid" style="margin-bottom:14px">
+        <div class="form-field" style="grid-column:span 2">
+          <label for="dripper-name">濾杯名稱 *</label>
+          <input type="text" id="dripper-name" maxlength="100" required placeholder="Hario Switch">
+        </div>
+        <div class="form-field">
+          <label for="dripper-material">材質</label>
+          <input type="text" id="dripper-material" maxlength="50" placeholder="陶瓷">
+        </div>
+      </div>
+      <button class="submit-btn" id="dripper-submit" style="padding:8px 24px">儲存濾杯</button>
+      <button type="button" class="cancel-btn" id="dripper-cancel" onclick="editDripper()" hidden>取消編輯</button>
+      <div class="bean-edit-error" id="dripper-form-error" role="status"></div>
+    </form>
+    <div class="form-section">
+      <div class="form-section-title">已儲存濾杯</div>
+      <div id="drippers-list"></div>
+      <div class="bean-edit-error" id="drippers-list-error" role="status"></div>
+    </div>
+  </div>
+
 </div>
 
 <!-- Delete confirmation modal -->
@@ -948,14 +1018,16 @@ function setView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
-function showList()   { setView('view-list');   loadList(); }
+function showList()   { setView('view-list');   return loadList(); }
 function showDetail() { setView('view-detail'); }
-function showAdd()    { setView('view-add');    initForm(); loadBeansIntoSelect(null, formRevision); }
+function showAdd()    { setView('view-add');    initForm(); return loadBrewOptions(); }
 function showBeans()  { setView('view-beans');  loadBeansList(); }
+function showDrippers() { setView('view-drippers'); loadDrippersList(); }
 
 // ── Load List ─────────────────────────────────────────────
 let allBrews = [];   // master copy
-let currentSort = 'date-desc';
+const DEFAULT_SORT = 'date-desc';
+let currentSort = DEFAULT_SORT;
 
 async function loadList() {
   const errEl     = document.getElementById('list-error');
@@ -968,8 +1040,8 @@ async function loadList() {
     const brews = await res.json();
     allBrews = brews;
 
-    // 動態填充 filter 選項（豆款、烘焙度）
     populateFilterOptions(brews);
+    fetchRoastOptions();
 
     applyFilters();
   } catch (e) {
@@ -978,19 +1050,44 @@ async function loadList() {
   }
 }
 
-function populateFilterOptions(brews) {
-  // 豆款
-  const beanSel  = document.getElementById('filter-bean');
-  const prevBean = beanSel.value;
-  const beans    = [...new Set(brews.map(b => b.beans_display).filter(Boolean))].sort();
+function populateFilterOptions(brews, selectedBean) {
+  const beanSel = document.getElementById('filter-bean');
+  selectedBean ??= beanSel.value;
+  const beans = new Set(brews.map(b => b.beans_display).filter(Boolean));
   beanSel.innerHTML = '<option value="">全部</option>' +
-    beans.map(n => `<option value="${n}">${n}</option>`).join('');
-  if (beans.includes(prevBean)) beanSel.value = prevBean;
+    [...beans].sort().map(name => {
+      const label = escAttr(name);
+      return `<option value="${label}">${label}</option>`;
+    }).join('');
+  beanSel.value = beans.has(selectedBean) ? selectedBean : '';
+}
 
-  // 烘焙度（從 beans_display 末段解析不可靠，改從後端 /api/beans 撈）
-  // 用已存的 allBrews 中 beans_display 裡含的關鍵字湊合；
-  // 實際上 brews API 沒有單獨的 roast_level 欄，須另行 fetch beans
-  fetchRoastOptions();
+function clearBeanFilter() {
+  const select = document.getElementById('filter-bean');
+  select.value = '';
+  applyFilters();
+  select.focus();
+}
+
+function resetListFilters() {
+  for (const id of ['filter-bean', 'filter-hi', 'filter-roast', 'filter-notes']) {
+    document.getElementById(id).value = '';
+  }
+  document.getElementById('filter-starred-btn').classList.remove('on');
+}
+
+function showHome() {
+  resetListFilters();
+  setSort(DEFAULT_SORT);
+  return showList();
+}
+
+function showBeanBrews() {
+  if (!currentBrew?.beans_display) return;
+  resetListFilters();
+  populateFilterOptions([...allBrews, currentBrew], currentBrew.beans_display);
+  document.getElementById('clear-bean-filter').hidden = false;
+  return showList();
 }
 
 async function fetchRoastOptions() {
@@ -1026,6 +1123,7 @@ function applyFilters() {
   const filterRoast   = document.getElementById('filter-roast')?.value   || '';
   const filterStarred = document.getElementById('filter-starred-btn')?.classList.contains('on');
   const filterNotes   = (document.getElementById('filter-notes')?.value  || '').trim().toLowerCase();
+  document.getElementById('clear-bean-filter').hidden = !filterBean;
 
   let list = allBrews.filter(b => {
     if (filterBean    && b.beans_display !== filterBean)               return false;
@@ -1068,7 +1166,7 @@ function applyFilters() {
           <tr onclick="loadDetail(${b.id})">
             <td><span class="brew-id">#${b.id}</span></td>
             <td><span class="brew-date">${formatDate(b.brewed_at)}</span></td>
-            <td><span class="brew-beans">${b.beans_display || '-'}</span></td>
+            <td><span class="brew-beans">${escAttr(b.beans_display || '-')}</span></td>
             <td class="td-star"><span class="star-icon${b.starred ? ' filled' : ''}">${b.starred ? '★' : ''}</span></td>
             <td><span class="arrow-hint">詳細 →</span></td>
           </tr>`).join('')}
@@ -1107,6 +1205,9 @@ function renderDetail(b) {
   const hi = b.H_I ?? b.h_i ?? b['H/I'] ?? null;
   const h_i = hi === 'H' ? 'HOT' : hi === 'I' ? 'ICED' : null;
   const totalTime = currentPours.reduce((s, p) => s + (p.duration_s||0) + (p.wait_s||0), 0);
+  const beanBrewCount = b.beans_display
+    ? allBrews.filter(brew => brew.beans_display === b.beans_display).length
+    : 0;
 
   document.getElementById('detail-content').innerHTML = `
     <div class="detail-header">
@@ -1125,9 +1226,10 @@ function renderDetail(b) {
         <span class="hi-badge">${h_i || '—'}</span>
         <span class="detail-date" style="color:var(--ink-faint)">ID #${b.id}</span>
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:16px">
-        <button type="button" class="add-btn" onclick="brewAgain()">再煮一杯</button>
-        ${b.source_brew_id ? `<button type="button" class="notes-edit-btn" style="margin-top:0" onclick="loadDetail(${Number(b.source_brew_id)})">沿用紀錄 #${Number(b.source_brew_id)} →</button>` : ''}
+      <div class="detail-actions">
+        <button type="button" class="add-btn brew-action" onclick="brewAgain()">再煮一杯</button>
+        ${beanBrewCount > 0 ? `<button type="button" class="notes-edit-btn brew-action" onclick="showBeanBrews()">查看全部紀錄 (${beanBrewCount})</button>` : ''}
+        ${b.source_brew_id ? `<button type="button" class="notes-edit-btn" onclick="loadDetail(${Number(b.source_brew_id)})">沿用紀錄 #${Number(b.source_brew_id)} →</button>` : ''}
       </div>
     </div>
 
@@ -1141,6 +1243,20 @@ function renderDetail(b) {
         <div><div class="param-label">總注水量</div><div class="param-value">${fmt(b.water_vol,' ml')}</div></div>
         <div><div class="param-label">水溫</div><div class="param-value">${fmt(b.water_temp,' °C')}</div></div>
         <div><div class="param-label">冰塊量</div><div class="param-value">${fmt(b.ice_vol,' g')}</div></div>
+        <div class="detail-dripper">
+          <div class="param-label">濾杯</div>
+          <div class="param-value" id="detail-dripper-label">${escAttr(brewDripperLabel(b))}</div>
+          <button type="button" class="notes-edit-btn" id="detail-dripper-edit" onclick="openBrewDripperEditor(this)">${b.dripper_id ? '更換濾杯' : '補記濾杯'}</button>
+          <form class="form-field" id="detail-dripper-form" onsubmit="saveBrewDripper(event)" hidden>
+            <label for="detail-dripper-select">使用濾杯</label>
+            <select id="detail-dripper-select"></select>
+            <div class="bean-edit-btns">
+              <button class="bean-save-btn" id="detail-dripper-save">儲存</button>
+              <button type="button" class="bean-edit-cancel-btn" onclick="closeBrewDripperEditor(this.form)">取消</button>
+            </div>
+          </form>
+          <div class="bean-edit-error" id="detail-dripper-error" role="status"></div>
+        </div>
       </div>
     </div>
 
@@ -1247,6 +1363,7 @@ const scoreValues = {};
 let sourceBrewId = null;
 let formRevision = 0;
 let beansReady = false;
+let drippersReady = false;
 
 function clearBrewSource() {
   sourceBrewId = null;
@@ -1280,12 +1397,13 @@ async function brewAgain() {
       document.getElementById(`pour-${p.pour_order === 0 ? 0 : pourCount}-vol`).value = p.volume_ml ?? '';
     });
   }
-  await loadBeansIntoSelect(source.bean_id, formRevision);
+  await loadBrewOptions(source);
 }
 
 function initForm() {
   formRevision++;
   beansReady = false;
+  drippersReady = false;
   clearBrewSource();
   tReset();
   document.getElementById('timer-panel').classList.remove('open');
@@ -1390,6 +1508,10 @@ async function submitBrew() {
     errEl.textContent = '豆款尚未載入完成，請稍候；若載入失敗，請重新開啟表單。';
     return;
   }
+  if (!drippersReady) {
+    errEl.textContent = '濾杯清單尚未載入，請稍候或重新開啟表單。';
+    return;
+  }
   if (sourceBrewId !== null && !document.getElementById('f-beans').value) {
     errEl.textContent = '請選擇這次沖煮使用的豆款。';
     return;
@@ -1398,6 +1520,7 @@ async function submitBrew() {
   const brew = {
     source_brew_id: sourceBrewId,
     bean_id:      parseInt(document.getElementById('f-beans').value) || null,
+    dripper_id:   Number(document.getElementById('f-dripper').value) || null,
     bean_weight:  getFloat('f-bean-weight'),
     grind:        getFloat('f-grind'),
     H_I:          document.getElementById('f-hi').value,
@@ -1430,7 +1553,8 @@ async function submitBrew() {
       body: JSON.stringify({ brew, pours }),
     });
     if (!res.ok) { const e = await res.json(); throw new Error(e.error || `HTTP ${res.status}`); }
-    showToast('✓ 紀錄已儲存');
+    const saved = await res.json();
+    showToast(saved.warnings?.length ? `✓ 已儲存：${saved.warnings.join('；')}` : '✓ 紀錄已儲存');
     showList();
   } catch (e) {
     errEl.innerHTML = `<div class="error-msg">⚠ 儲存失敗：${e.message}</div>`;
@@ -1573,6 +1697,203 @@ async function toggleStarred(id, btnEl) {
   }
 }
 
+// ── Drippers ─────────────────────────────────────────────
+let drippers = [];
+let editingDripperId = null;
+
+function dripperLabel({ name, material }) {
+  return material ? `${name}（${material}）` : name;
+}
+
+function brewDripperLabel(brew) {
+  return brew.dripper_name
+    ? dripperLabel({ name: brew.dripper_name, material: brew.dripper_material })
+    : '未記錄';
+}
+
+async function dripperRequest(path, method = 'GET', body) {
+  const options = { method };
+  if (body !== undefined) {
+    options.headers = { 'Content-Type': 'application/json' };
+    options.body = JSON.stringify(body);
+  }
+  const response = await fetch(`${API}${path}`, options);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+  return data;
+}
+
+function fillDripperSelect(select, items, selectedId) {
+  select.innerHTML = '<option value="">未記錄</option>' + items.map(dripper =>
+    `<option value="${Number(dripper.id)}" data-name="${escAttr(dripper.name)}" data-material="${escAttr(dripper.material)}">${escAttr(dripperLabel(dripper))}</option>`
+  ).join('');
+  select.value = items.some(dripper => dripper.id === selectedId) ? String(selectedId) : '';
+}
+
+function loadBrewOptions(source = {}) {
+  return Promise.all([
+    loadBeansIntoSelect(source.bean_id, formRevision),
+    loadDrippersIntoBrew(source.dripper_id, formRevision),
+  ]);
+}
+
+async function loadDrippersIntoBrew(selectedId, revision) {
+  const select = document.getElementById('f-dripper');
+  const status = document.getElementById('brew-dripper-status');
+  drippersReady = false;
+  select.disabled = true;
+  select.innerHTML = '<option value="">載入濾杯中…</option>';
+  status.textContent = '';
+  try {
+    const items = await dripperRequest('/drippers');
+    if (revision !== formRevision) return;
+    fillDripperSelect(select, items, selectedId);
+    select.disabled = false;
+    drippersReady = true;
+  } catch (e) {
+    if (revision === formRevision) {
+      drippersReady = selectedId == null;
+      select.innerHTML = '<option value="">載入失敗</option>';
+      status.innerHTML = '<button type="button" class="notes-edit-btn">重新載入濾杯</button>';
+      status.firstElementChild.onclick = () => loadDrippersIntoBrew(selectedId, revision);
+    }
+  }
+}
+
+async function openBrewDripperEditor(button) {
+  const brew = currentBrew;
+  const form = document.getElementById('detail-dripper-form');
+  const select = document.getElementById('detail-dripper-select');
+  const error = document.getElementById('detail-dripper-error');
+  button.disabled = true;
+  error.textContent = '';
+  try {
+    const items = await dripperRequest('/drippers');
+    if (currentBrew !== brew || !form.isConnected) return;
+    fillDripperSelect(select, items, brew.dripper_id);
+    button.hidden = true;
+    form.hidden = false;
+    select.focus();
+  } catch (e) {
+    error.textContent = `濾杯載入失敗：${e.message}`;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function closeBrewDripperEditor(form) {
+  if (document.getElementById('detail-dripper-save').disabled) return;
+  form.hidden = true;
+  const button = document.getElementById('detail-dripper-edit');
+  button.hidden = false;
+  button.focus();
+  document.getElementById('detail-dripper-error').textContent = '';
+}
+
+async function saveBrewDripper(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const brew = currentBrew;
+  const select = document.getElementById('detail-dripper-select');
+  const save = document.getElementById('detail-dripper-save');
+  const error = document.getElementById('detail-dripper-error');
+  if (save.disabled) return;
+  const id = Number(select.value) || null;
+  const { name = null, material = null } = select.selectedOptions[0].dataset;
+  save.disabled = true;
+  select.disabled = true;
+  error.textContent = '';
+  try {
+    await dripperRequest(`/brews/${brew.id}/dripper`, 'PATCH', { dripper_id: id });
+    if (currentBrew !== brew || !form.isConnected) return;
+    Object.assign(brew, { dripper_id: id, dripper_name: name, dripper_material: material || null });
+    document.getElementById('detail-dripper-label').textContent = brewDripperLabel(brew);
+    document.getElementById('detail-dripper-edit').textContent = id ? '更換濾杯' : '補記濾杯';
+    save.disabled = false;
+    closeBrewDripperEditor(form);
+    showToast('✓ 濾杯已更新');
+  } catch (e) {
+    error.textContent = e.message;
+  } finally {
+    save.disabled = false;
+    select.disabled = false;
+  }
+}
+
+async function loadDrippersList() {
+  const list = document.getElementById('drippers-list');
+  list.innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    drippers = await dripperRequest('/drippers');
+    list.innerHTML = drippers.map(dripper => `
+      <div class="bean-item">
+        <span class="bean-name">${escAttr(dripperLabel(dripper))}</span>
+        <div class="bean-actions">
+          <button class="bean-edit-btn" onclick="editDripper(${Number(dripper.id)})">編輯</button>
+          <button class="bean-del-btn" onclick="deleteDripper(${Number(dripper.id)}, this)">刪除</button>
+        </div>
+      </div>`).join('') || '<div class="empty-state">尚無濾杯</div>';
+  } catch (e) {
+    list.textContent = `濾杯載入失敗：${e.message}`;
+  }
+}
+
+function editDripper(id = null) {
+  if (document.getElementById('dripper-submit').disabled) return;
+  const dripper = drippers.find(item => item.id === id);
+  editingDripperId = dripper?.id ?? null;
+  document.getElementById('dripper-form-title').textContent = dripper ? '編輯濾杯' : '新增濾杯';
+  const name = document.getElementById('dripper-name');
+  name.value = dripper?.name ?? '';
+  document.getElementById('dripper-material').value = dripper?.material ?? '';
+  document.getElementById('dripper-cancel').hidden = !dripper;
+  document.getElementById('dripper-form-error').textContent = '';
+  name.focus();
+}
+
+async function saveDripper(event) {
+  event.preventDefault();
+  const submit = document.getElementById('dripper-submit');
+  if (submit.disabled) return;
+  const name = document.getElementById('dripper-name');
+  const material = document.getElementById('dripper-material');
+  const error = document.getElementById('dripper-form-error');
+  const id = editingDripperId;
+  submit.disabled = name.disabled = material.disabled = true;
+  error.textContent = '';
+  try {
+    await dripperRequest(id === null ? '/drippers' : `/drippers/${id}`, id === null ? 'POST' : 'PUT',
+      { name: name.value.trim(), material: material.value.trim() || null });
+  } catch (e) {
+    error.textContent = e.message;
+    return;
+  } finally {
+    submit.disabled = name.disabled = material.disabled = false;
+  }
+  editDripper();
+  showToast('✓ 濾杯已儲存');
+  await loadDrippersList();
+}
+
+async function deleteDripper(id, button) {
+  if (document.getElementById('dripper-submit').disabled) return;
+  const dripper = drippers.find(item => item.id === id);
+  if (!dripper || !confirm(`確定刪除「${dripperLabel(dripper)}」？`)) return;
+  const error = document.getElementById('drippers-list-error');
+  error.textContent = '';
+  button.disabled = true;
+  try {
+    await dripperRequest(`/drippers/${id}`, 'DELETE');
+    if (editingDripperId === id) editDripper();
+    showToast('✓ 濾杯已刪除');
+    await loadDrippersList();
+  } catch (e) {
+    error.textContent = e.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
 // ── Beans management ─────────────────────────────────────
 async function loadBeansIntoSelect(selectedBeanId = null, revision = formRevision) {
   const sel = document.getElementById('f-beans');
@@ -1586,7 +1907,7 @@ async function loadBeansIntoSelect(selectedBeanId = null, revision = formRevisio
     sel.innerHTML = '<option value="">— 選擇豆款 —</option>' +
       beans.map(b => {
         const label = [b.beans_name, b.process, b.roast_level].filter(Boolean).join(' ');
-        return `<option value="${b.id}">${escAttr(label)}</option>`;
+        return `<option value="${b.id}">${escAttr(label)}${b.is_finished ? '（已用完）' : ''}</option>`;
       }).join('');
     if (selectedBeanId != null) sel.value = String(selectedBeanId);
     beansReady = true;
@@ -1605,6 +1926,7 @@ async function loadBeansList() {
   el.innerHTML = '<div class="loading">Loading...</div>';
   try {
     const res = await fetch(`${API}/beans`);
+    if (!res.ok) throw new Error('無法載入豆款');
     const beans = await res.json();
     if (!beans.length) {
       el.innerHTML = '<div style="color:var(--ink-faint);font-size:0.8rem">尚無豆款，請新增</div>';
@@ -1612,10 +1934,11 @@ async function loadBeansList() {
     }
     el.innerHTML = beans.map(b => `
       <div class="bean-item" id="bean-item-${b.id}">
-        <span class="bean-name">${[b.beans_name, b.process, b.roast_level].filter(Boolean).join(' · ')}</span>
+        <span class="bean-name">${[b.beans_name, b.process, b.roast_level].filter(Boolean).map(escAttr).join(' · ')}${b.is_finished ? '（已用完）' : ''}</span>
         <div class="bean-actions">
+          <button class="bean-edit-btn" onclick="toggleBeanFinished(${b.id}, ${b.is_finished ? 'false' : 'true'})">${b.is_finished ? '標示仍有豆子' : '標示已用完'}</button>
           <button class="bean-edit-btn" onclick="toggleBeanEdit(${b.id})">編輯</button>
-          <button class="bean-del-btn" onclick="deleteBean(${b.id}, '${b.beans_name.replace(/'/g,"\\'")}')">刪除</button>
+          <button class="bean-del-btn" data-bean-name="${escAttr(b.beans_name)}" onclick="deleteBean(${b.id}, this.dataset.beanName)">刪除</button>
         </div>
       </div>
       <div class="bean-edit-form" id="bean-edit-form-${b.id}">
@@ -1697,6 +2020,21 @@ async function addBean() {
     loadBeansList();
   } catch (e) {
     errEl.innerHTML = `<div class="error-msg">⚠ ${e.message}</div>`;
+  }
+}
+
+async function toggleBeanFinished(id, is_finished) {
+  try {
+    const res = await fetch(`${API}/beans/${id}/finished`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_finished }),
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
+    showToast(is_finished ? '✓ 已標示用完，保留沖煮紀錄' : '✓ 已標示仍有豆子');
+    await loadBeansList();
+  } catch (e) {
+    alert(`更新失敗：${e.message}`);
   }
 }
 

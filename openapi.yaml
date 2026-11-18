@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Brewfolio API
   version: 0.1.0
-  description: API spec for reading coffee beans and brew records.
+  description: API spec for coffee beans and brew records. Field semantics are defined in docs/data-dictionary.md.
 servers:
   - url: http://localhost:3001
     description: Local development server
@@ -11,6 +11,8 @@ tags:
     description: Coffee brew records
   - name: Beans
     description: Coffee bean catalog
+  - name: Drippers
+    description: Personal coffee dripper catalog
 paths:
   /api/brews:
     get:
@@ -37,6 +39,54 @@ paths:
                       starred: 1
                       notes: First try with higher water temperature.
                       beans_display: Panama Geisha Washed Light
+                      dripper_id: 2
+                      dripper_name: Hario Switch
+                      dripper_material: Ceramic
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [Brews]
+      summary: Create a brew and pour records atomically
+      description: >-
+        Optional numeric values may be null. Provided bean, dripper and source brew IDs must exist.
+        Finished beans may be used for retrospective records. Volume mismatches
+        produce warnings without rejecting the record.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [brew]
+              properties:
+                brew:
+                  $ref: '#/components/schemas/BrewInput'
+                pours:
+                  type: array
+                  maxItems: 128
+                  items:
+                    $ref: '#/components/schemas/PourInput'
+      responses:
+        '200':
+          description: Created brew ID and non-blocking warnings.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, warnings]
+                properties:
+                  id:
+                    type: integer
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          description: Invalid fields or missing related bean, dripper or source brew.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           $ref: '#/components/responses/InternalServerError'
   /api/brews/{id}:
@@ -62,6 +112,9 @@ paths:
                     brewed_at: '2026-09-12T08:30:00.000Z'
                     bean_id: 3
                     source_brew_id: null
+                    dripper_id: 2
+                    dripper_name: Hario Switch
+                    dripper_material: Ceramic
                     beans_name: Panama Geisha
                     process: Washed
                     roast_level: Light
@@ -121,7 +174,144 @@ paths:
                       roast_level: Light
         '500':
           $ref: '#/components/responses/InternalServerError'
+  /api/beans/{id}/finished:
+    patch:
+      tags: [Beans]
+      summary: Mark a bean as finished or available
+      description: Changes current availability without removing historical records.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 2147483647
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [is_finished]
+              properties:
+                is_finished:
+                  oneOf:
+                    - type: boolean
+                    - type: integer
+                      enum: [0, 1]
+      responses:
+        '200':
+          description: Availability updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, is_finished]
+                properties:
+                  ok:
+                    type: boolean
+                  is_finished:
+                    type: integer
+                    enum: [0, 1]
+        '400':
+          description: Invalid ID or status.
+        '404':
+          description: Bean not found.
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/drippers:
+    get:
+      tags: [Drippers]
+      summary: List saved drippers
+      responses:
+        '200':
+          description: Drippers ordered by name and material.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Dripper' }
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [Drippers]
+      summary: Save a dripper
+      requestBody:
+        $ref: '#/components/requestBodies/Dripper'
+      responses:
+        '201':
+          $ref: '#/components/responses/Dripper'
+        '400':
+          description: Invalid name or material.
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/drippers/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1, maximum: 2147483647 }
+    put:
+      tags: [Drippers]
+      summary: Update a saved dripper
+      requestBody:
+        $ref: '#/components/requestBodies/Dripper'
+      responses:
+        '200':
+          $ref: '#/components/responses/Dripper'
+        '400':
+          description: Invalid ID, name or material.
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags: [Drippers]
+      summary: Delete an unused dripper
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          description: Invalid dripper ID.
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: The dripper is linked to at least one brew.
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/brews/{id}/dripper:
+    patch:
+      tags: [Brews]
+      summary: Update or clear a brew's dripper
+      parameters:
+        - $ref: '#/components/parameters/BrewId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dripper_id]
+              properties:
+                dripper_id: { type: integer, nullable: true, minimum: 1, maximum: 2147483647 }
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          description: Invalid ID or unknown dripper.
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 components:
+  requestBodies:
+    Dripper:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DripperInput'
   parameters:
     BrewId:
       name: id
@@ -133,6 +323,21 @@ components:
         minimum: 1
       example: 12
   responses:
+    Ok:
+      description: Update succeeded.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [ok]
+            properties:
+              ok: { type: boolean }
+    Dripper:
+      description: Saved dripper.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Dripper'
     NotFound:
       description: The requested resource was not found.
       content:
@@ -150,6 +355,19 @@ components:
           example:
             error: Database connection failed
   schemas:
+    DripperInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        material: { type: string, nullable: true, maxLength: 50 }
+    Dripper:
+      allOf:
+        - $ref: '#/components/schemas/DripperInput'
+        - type: object
+          required: [id, material]
+          properties:
+            id: { type: integer, minimum: 1 }
     Bean:
       type: object
       additionalProperties: false
@@ -169,11 +387,16 @@ components:
           type: string
           nullable: true
           example: Light
+        is_finished:
+          type: integer
+          enum: [0, 1]
+          description: 1 means marked finished; 0 means not marked finished, not a verified stock count.
       required:
         - id
         - beans_name
         - process
         - roast_level
+        - is_finished
     BrewSummary:
       type: object
       additionalProperties: false
@@ -188,6 +411,7 @@ components:
         H_I:
           $ref: '#/components/schemas/BrewMethod'
         starred:
+          description: Explicit preference when 1; 0 means unmarked, not disliked.
           type: integer
           enum:
             - 0
@@ -200,6 +424,9 @@ components:
         beans_display:
           type: string
           example: Panama Geisha Washed Light
+        dripper_id: { type: integer, nullable: true }
+        dripper_name: { type: string, nullable: true }
+        dripper_material: { type: string, nullable: true }
       required:
         - id
         - brewed_at
@@ -207,6 +434,9 @@ components:
         - starred
         - notes
         - beans_display
+        - dripper_id
+        - dripper_name
+        - dripper_material
     BrewDetail:
       allOf:
         - $ref: '#/components/schemas/BrewBase'
@@ -238,6 +468,9 @@ components:
           type: integer
           nullable: true
           example: null
+        dripper_id: { type: integer, nullable: true }
+        dripper_name: { type: string, nullable: true }
+        dripper_material: { type: string, nullable: true }
         beans_name:
           type: string
           nullable: true
@@ -255,6 +488,8 @@ components:
           nullable: true
           example: Panama Geisha Washed Light
         grind:
+          description: Personal raw grinder setting; direction, device and calibration are unknown. Zero is valid.
+          minimum: 0
           type: number
           nullable: true
           example: 4
@@ -265,6 +500,8 @@ components:
           nullable: true
           example: 25
         water_vol:
+          description: Poured water in ml, excluding ice.
+          minimum: 1
           type: integer
           nullable: true
           example: 450
@@ -273,6 +510,8 @@ components:
           nullable: true
           example: 94
         ice_vol:
+          description: Ice weight in grams, separate from water_vol. Future AI field name is ice_weight_g.
+          minimum: 0
           type: integer
           nullable: true
           example: 0
@@ -291,6 +530,7 @@ components:
           nullable: true
           example: Higher water temperature, coarser grind, high brew ratio.
         starred:
+          description: Explicit preference when 1; 0 means unmarked, not disliked.
           type: integer
           enum:
             - 0
@@ -301,6 +541,9 @@ components:
         - brewed_at
         - bean_id
         - source_brew_id
+        - dripper_id
+        - dripper_name
+        - dripper_material
         - beans_name
         - process
         - roast_level
@@ -318,6 +561,92 @@ components:
         - aroma
         - notes
         - starred
+    BrewInput:
+      type: object
+      required: [H_I]
+      properties:
+        bean_id:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 2147483647
+        source_brew_id:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 2147483647
+        dripper_id: { type: integer, nullable: true, minimum: 1, maximum: 2147483647 }
+        H_I:
+          $ref: '#/components/schemas/BrewMethod'
+        bean_weight:
+          type: number
+          nullable: true
+          minimum: 0
+          exclusiveMinimum: true
+          maximum: 3.4028234663852886e38
+          description: Coffee weight in grams.
+        grind:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 3.4028234663852886e38
+          description: Personal raw setting, with no universal coarse/fine direction.
+        water_vol:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 2147483647
+          description: Poured water in ml, excluding ice.
+        water_temp:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 100
+        ice_vol:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 2147483647
+          description: Ice weight in grams; future AI name is ice_weight_g.
+        sour:
+          $ref: '#/components/schemas/Rating'
+        sweet:
+          $ref: '#/components/schemas/Rating'
+        bitter:
+          $ref: '#/components/schemas/Rating'
+        richness:
+          $ref: '#/components/schemas/Rating'
+        aroma:
+          $ref: '#/components/schemas/Rating'
+        notes:
+          type: string
+          nullable: true
+          description: Original observations; maximum 65535 UTF-8 bytes.
+    PourInput:
+      type: object
+      required: [pour_order]
+      description: Order must be unique within a brew. Partial records are allowed.
+      properties:
+        pour_order:
+          type: integer
+          minimum: 0
+          maximum: 127
+        volume_ml:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 2147483647
+          description: Water poured in this step, not a cumulative total.
+        duration_s:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 2147483647
+        wait_s:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 2147483647
     BrewMethod:
       type: string
       enum:
@@ -326,6 +655,7 @@ components:
       description: H means hot brew; I means iced brew.
       example: H
     Rating:
+      description: Subjective sensory intensity, not quality or preference. Null means not rated.
       type: integer
       nullable: true
       minimum: 1

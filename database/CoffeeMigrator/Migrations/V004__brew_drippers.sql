@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS `drippers` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(100) NOT NULL,
+  `material` VARCHAR(50) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+ALTER TABLE `brews`
+  ADD COLUMN `dripper_id` INT DEFAULT NULL,
+  ADD CONSTRAINT `fk_brews_dripper` FOREIGN KEY (`dripper_id`)
+    REFERENCES `drippers` (`id`) ON DELETE RESTRICT;
