@@ -7,3 +7,6 @@ node_modules/
 !.env.example
 *.sql.gz
 *.dump
+
+/BADDY_BADDY_完成樂譜/
+/baddy_work/
